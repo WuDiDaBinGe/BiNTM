@@ -29,6 +29,9 @@ class Generator(nn.Module):
         output = self.generator(inputs)
         return output
 
+    def inference(self, theta):
+        return self.generator(theta)
+
 
 class Encoder(nn.Module):
     def __init__(self, v_dim, hid_dim, n_topic):
@@ -48,7 +51,7 @@ class Discriminator(nn.Module):
     def __init__(self, n_topic, hid_dim, v_dim):
         super(Discriminator, self).__init__()
         self.discriminator = nn.Sequential(
-            * block(n_topic + hid_dim, hid_dim),
+            * block(n_topic + v_dim, hid_dim),
             nn.Linear(hid_dim, 1),
         )
 
