@@ -56,6 +56,8 @@ def main():
     use_token = args.use_token
     clean_data = args.clean_data
 
+
+
     device = torch.device('cuda')
     if clean_data:
         docSet = DocNpyDataset(taskname)
@@ -70,8 +72,9 @@ def main():
     voc_size = docSet.vob_size
 
     model = BNTM(bow_dim=voc_size, n_topic=n_topic, hid_dim=1024, device=device, task_name=taskname)
-    model.train(train_data=docSet, batch_size=batch_size, test_data=docSet, epochs=num_epochs, n_critic=10,clean_data=clean_data)
-
+    model.train(train_data=docSet, batch_size=batch_size, test_data=docSet, epochs=num_epochs, n_critic=10,clean_data=clean_data, resume=bkpt_continue)
+    topic_words = model.show_topic_words()
+    print('\n'.join([str(lst) for lst in topic_words]))
     save_name = f'./ckpt/BNTM_{taskname}_tp{n_topic}_{time.strftime("%Y-%m-%d-%H-%M", time.localtime())}.ckpt'
     torch.save({'generator': model.generator.state_dict(), 'encoder': model.encoder.state_dict(),
                 'discriminator': model.discriminator.state_dict()}, save_name)

@@ -3,6 +3,7 @@
 # @Author  : WuDiDaBinGe
 # @FileName: model.py
 # @Software: PyCharm
+import os
 import time
 from typing import List, Any
 
@@ -26,8 +27,8 @@ class BNTM:
         self.hid_dim = hid_dim
         self.id2token = None
         self.task_name = task_name
-        self.writer = SummaryWriter(f'log/{task_name}_{time.strftime("%Y-%m-%d-%H-%M", time.localtime())}')
-
+        # self.writer = SummaryWriter(f'log/{task_name}_{time.strftime("%Y-%m-%d-%H-%M", time.localtime())}')
+        self.writer = SummaryWriter('log/20news_clean_2021-06-27-10-38')
         self.encoder = Encoder(v_dim=bow_dim, hid_dim=hid_dim, n_topic=n_topic)
         self.generator = Generator(v_dim=bow_dim, hid_dim=hid_dim, n_topic=n_topic)
         self.discriminator = Discriminator(v_dim=bow_dim, hid_dim=hid_dim, n_topic=n_topic)
@@ -38,10 +39,11 @@ class BNTM:
             self.discriminator = self.discriminator.to(device)
 
     def train(self, train_data, batch_size=64, clip=0.01, lr=1e-4, test_data=None, epochs=100, beta_1=0.5,
-              beta_2=0.999, n_critic=5, clean_data=False):
+              beta_2=0.999, n_critic=5, clean_data=False, resume=False, ckpt_path='models/checkpoint_20news_clean/ckpt_best_20000.pth'):
         self.generator.train()
         self.encoder.train()
         self.discriminator.train()
+        start_epoch = -1
         if clean_data:
             self.id2token = train_data.dictionary_id2token
             data_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=4)
@@ -53,7 +55,17 @@ class BNTM:
         optim_e = torch.optim.Adam(self.encoder.parameters(), lr=lr, betas=(beta_1, beta_2))
         optim_d = torch.optim.Adam(self.discriminator.parameters(), lr=lr, betas=(beta_1, beta_2))
         loss_E, loss_G, loss_D = 0, 0, 0
-        for epoch in range(epochs):
+        if resume:
+            checkpoint = torch.load(ckpt_path)
+            self.discriminator.load_state_dict(checkpoint['discriminator'])
+            self.generator.load_state_dict(checkpoint['generator'])
+            self.encoder.load_state_dict(checkpoint['encoder'])
+            optim_g.load_state_dict(checkpoint['optimizer_g'])
+            optim_d.load_state_dict(checkpoint['optimizer_d'])
+            optim_e.load_state_dict(checkpoint['optimizer_e'])
+            start_epoch = checkpoint['epoch']
+
+        for epoch in range(start_epoch + 1, epochs+1):
             for iter_num, data in enumerate(data_loader):
                 if clean_data:
                     bows_real = data
@@ -98,11 +110,24 @@ class BNTM:
             if epoch % 50 == 0:
                 self.writer.add_scalars("Train/Loss", {"D_loss": loss_D, "E_loss": loss_E, "G_loss": loss_G},
                                         epoch)
+            if epoch % 250 == 0:
                 if test_data is not None:
-                    c_a, c_p, npmi, uci = self.get_topic_coherence()
-                    print(c_a, c_p, npmi, uci)
-                    self.writer.add_scalars("Topic Coherence", {'c_a': c_a, 'c_p': c_p, 'npmi': npmi, 'uci': uci},
+                    c_a, c_p, npmi = self.get_topic_coherence()
+                    print(c_a, c_p, npmi)
+                    self.writer.add_scalars("Topic Coherence", {'c_a': c_a, 'c_p': c_p, 'npmi': npmi},
                                             epoch)
+            # save checkpoints
+            if epoch % 500 == 0:
+                checkpoint = {'generator': self.generator.state_dict(),
+                              'encoder': self.encoder.state_dict(),
+                              'discriminator': self.discriminator.state_dict(),
+                              'optimizer_g': optim_g.state_dict(),
+                              'optimizer_e': optim_e.state_dict(),
+                              'optimizer_d': optim_d.state_dict(),
+                              'epoch': epoch}
+                if not os.path.isdir(f"./models/checkpoint_{self.task_name}_{self.n_topic}"):
+                    os.mkdir(f"./models/checkpoint_{self.task_name}_{self.n_topic}")
+                torch.save(checkpoint, f'./models/checkpoint_{self.task_name}_{self.n_topic}/ckpt_best_{epoch}.pth')
 
     def show_topic_words(self, topic_id=None, topK=10):
         with torch.no_grad():
@@ -133,5 +158,5 @@ class BNTM:
             c_a.append(palmetto.get_coherence(word_per_topic, coherence_type='ca'))
             c_p.append(palmetto.get_coherence(word_per_topic, coherence_type='cp'))
             npmi.append(palmetto.get_coherence(word_per_topic, coherence_type='npmi'))
-            uci.append(palmetto.get_coherence(word_per_topic, coherence_type='uci'))
-        return np.mean(c_a), np.mean(c_p), np.mean(npmi), np.mean(uci)
+            # uci.append(palmetto.get_coherence(word_per_topic, coherence_type='uci'))
+        return np.mean(c_a), np.mean(c_p), np.mean(npmi)
