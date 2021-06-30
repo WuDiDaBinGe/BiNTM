@@ -38,8 +38,15 @@ class BNTM:
             self.encoder = self.encoder.to(device)
             self.discriminator = self.discriminator.to(device)
 
+    def init_by_checkpoints(self, ckpt_path='models/checkpoint_20news_clean/ckpt_best_16500.pth'):
+        checkpoint = torch.load(ckpt_path)
+        self.discriminator.load_state_dict(checkpoint['discriminator'])
+        self.generator.load_state_dict(checkpoint['generator'])
+        self.encoder.load_state_dict(checkpoint['encoder'])
+
     def train(self, train_data, batch_size=64, clip=0.01, lr=1e-4, test_data=None, epochs=100, beta_1=0.5,
-              beta_2=0.999, n_critic=5, clean_data=False, resume=False, ckpt_path='models/checkpoint_20news_clean/ckpt_best_20000.pth'):
+              beta_2=0.999, n_critic=5, clean_data=False, resume=False,
+              ckpt_path='models/checkpoint_20news_clean_20/ckpt_best_100000.pth'):
         self.generator.train()
         self.encoder.train()
         self.discriminator.train()
@@ -65,7 +72,7 @@ class BNTM:
             optim_e.load_state_dict(checkpoint['optimizer_e'])
             start_epoch = checkpoint['epoch']
 
-        for epoch in range(start_epoch + 1, epochs+1):
+        for epoch in range(start_epoch + 1, epochs + 1):
             for iter_num, data in enumerate(data_loader):
                 if clean_data:
                     bows_real = data
@@ -160,3 +167,11 @@ class BNTM:
             npmi.append(palmetto.get_coherence(word_per_topic, coherence_type='npmi'))
             # uci.append(palmetto.get_coherence(word_per_topic, coherence_type='uci'))
         return np.mean(c_a), np.mean(c_p), np.mean(npmi)
+
+    def interface_topic_words(self, clean_data=True, test_data=None):
+        if clean_data:
+            self.id2token = test_data.dictionary_id2token
+        else:
+            self.id2token = {v: k for k, v in test_data.dictionary.token2id.items()}
+        c_a, c_p, npmi = self.get_topic_coherence()
+        print(f'c_a:{c_a},c_p:{c_p}, npmi:{npmi}')
