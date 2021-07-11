@@ -5,9 +5,8 @@
 # @Software: PyCharm
 import torch
 import argparse
-import time
 from model import BNTM
-from dataset import DocDataset, DocNpyDataset
+from dataloader.dataset import DocDataset, DocNpyDataset
 parser = argparse.ArgumentParser('Bidirectional Adversarial Topic model')
 parser.add_argument('--taskname', type=str, default='cnews10k', help='Taskname e.g cnews10k')
 parser.add_argument('--no_below', type=int, default=5, help='The lower bound of count for words to keep, e.g 10')

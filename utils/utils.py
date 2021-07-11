@@ -46,7 +46,7 @@ def calc_topic_coherence(topic_words, docs, dictionary, emb_path=None, taskname=
 
     # Computing the C_W2V score
     try:
-        w2v_model_path = os.path.join(os.getcwd(), 'data', f'{taskname}', 'w2v_weight_kv.txt')
+        w2v_model_path = os.path.join(os.getcwd(), '../data', f'{taskname}', 'w2v_weight_kv.txt')
         # Priority order: 1) user's embed file; 2) standard path embed file; 3) train from scratch then store.
         if emb_path != None and os.path.exists(emb_path):
             keyed_vectors = gensim.models.KeyedVectors.load_word2vec_format(emb_path, binary=False)

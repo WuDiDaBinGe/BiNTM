@@ -1,16 +1,18 @@
+#### 论文中的超参数设置
+
+| batch size | clip | learning rate | beta_1 | beta_2 | n_critic | optimizer |
+| :--------: | :--: | :-----------: | :----: | :----: | :------: | :-------: |
+|     64     | 0.01 |     1e-4      |  0.5   | 0.999  |    5     |   Adam    |
+
 #### 6.28 训练
 
-| epoch | topic num |      |      |
-| :---: | :-------: | :--: | :--: |
-| 10000 |    20     |      |      |
+| epoch | topic num |
+| :---: | :-------: |
+| 10000 |    20     |
 
-**评价指标如下：**
-
-![Topic_Coherence](https://gitee.com/yxbLovewy/my-pictures/raw/master/Topic_Coherence.svg)
-
-**训练Loss变化如下：**
-
-![Train_Loss](https://gitee.com/yxbLovewy/my-pictures/raw/master/Train_Loss.svg)
+|                           评价指标                           |                           Loss曲线                           |
+| :----------------------------------------------------------: | :----------------------------------------------------------: |
+| ![Topic_Coherence](https://gitee.com/yxbLovewy/my-pictures/raw/master/Topic_Coherence.svg) | ![Train_Loss](https://gitee.com/yxbLovewy/my-pictures/raw/master/Train_Loss.svg) |
 
 ```python
 ['israel', 'lebanese', 'lebanon', 'israeli', 'civilian', 'territory', 'arab', 'jews', 'palestinian', 'make']
@@ -36,3 +38,81 @@
 
 ```
 
+| epoch | topic num |
+| :---: | :-------: |
+| 15000 |    20     |
+
+
+| 评价指标 | Loss曲线 |
+| :---: | :-------: |
+| ![](https://gitee.com/yxbLovewy/my-pictures/raw/master/Topic_Coherence_15000.svg) |    ![](/home/yxb/Pictures/Train_Loss_15000.svg)    |
+
+
+
+最好的断点训练的主题：
+
+*ckpt_best_16500.pth*得出的topic-words分布如下：
+
+```shell
+['israel', 'israeli', 'arab', 'civilian', 'territory', 'arabs', 'lebanese', 'attack', 'lebanon', 'palestinian']
+['driver', 'card', 'mode', 'gateway', 'video', 'program', 'use', 'run', 'load', 'windows']
+['sin', 'love', 'christian', 'jesus', 'think', 'day', 'bible', 'god', 'make', 'heaven']
+['nasa', 'space', 'launch', 'rocket', 'moon', 'shuttle', 'flight', 'station', 'pat', 'satellite']
+['simm', 'apple', 'keyboard', 'nec', 'pin', 'like', 'mac', 'get', 'compatible', 'use']
+['oil', 'plug', 'clean', 'air', 'crack', 'helmet', 'make', 'engine', 'spot', 'take']
+['science', 'church', 'christian', 'book', 'think', 'bible', 'catholic', 'seem', 'revelation', 'reasoning']
+['game', 'team', 'score', 'ice', 'goal', 'win', 'think', 'make', 'season', 'take']
+['compound', 'koresh', 'tear', 'batf', 'cs', 'fire', 'gas', 'waco', 'people', 'take']
+['car', 'turbo', 'model', 'engine', 'sport', 'speed', 'tire', 'think', 'enough', 'use']
+['shipping', 'ship', 'sell', 'email', 'offer', 'please', 'manual', 'original', 'item', 'disk']
+['gun', 'criminal', 'firearm', 'crime', 'people', 'violent', 'use', 'ban', 'think', 'see']
+['player', 'league', 'nhl', 'play', 'career', 'defensive', 'hockey', 'better', 'average', 'hall']
+['problem', 'fix', 'compile', 'error', 'patch', 'client', 'server', 'map', 'null', 'file']
+['armenian', 'armenians', 'turkish', 'turks', 'genocide', 'armenia', 'soviet', 'turkey', 'azerbaijan', 'civilian']
+['key', 'encryption', 'secure', 'chip', 'escrow', 'clipper', 'trust', 'government', 'crypto', 'algorithm']
+['clock', 'slow', 'speed', 'mhz', 'cpu', 'faster', 'processor', 'cache', 'fast', 'bus']
+['find', 'please', 'know', 'program', 'anyone', 'look', 'anybody', 'thanks', 'file', 'advance']
+['bike', 'dog', 'dod', 'ride', 'honda', 'roll', 'road', 'thing', 'think', 'drink']
+['drug', 'money', 'oh', 'disease', 'take', 'people', 'economy', 'crack', 'health', 'tax']
+c_a:0.2101156221389105,c_p:0.2774334651257717, npmi:0.050271741293691205
+```
+
+**Topic50训练情况：**
+
+| epoch | topic num |
+| :---: | :-------: |
+| 50000 |    50     |
+
+|                           评价指标                           |                           Loss曲线                           |
+| :----------------------------------------------------------: | :----------------------------------------------------------: |
+| ![image-20210706210212173](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20210706210212173.png) | ![image-20210706210254300](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20210706210254300.png) |
+
+## Contrastive Learning + BTM
+
+
+
+| epoch | topic num |   lr      | batch size |
+| :---: | :-------: | :-------: | :-------: |
+| 50000 |    50     |    1e-4   |    512     |
+
+|                           评价指标                           |                           Loss曲线                           |
+| :----------------------------------------------------------: | :----------------------------------------------------------: |
+| ![image-20210709154108009](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210709154108009.png) | ![image-20210709154125595](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210709154125595.png) |
+
+碰到的问题是看出E_loss有明显下降，但是G和D Loss几乎不变，考虑是**学习率**的问题。
+
+Time: 2021.7.9
+
+Train Log:  log/c_atm/20news_clean_2021-07-09-22-19_topic20
+
+|                           评价指标                           |                           Loss曲线                           | 对比Loss                                                     |
+| :----------------------------------------------------------: | :----------------------------------------------------------: | ------------------------------------------------------------ |
+| ![image-20210710101701722](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210710101701722.png) | ![image-20210710101636635](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210710101636635.png) | ![image-20210710101617254](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210710101617254.png) |
+
+这种方法可能不太行
+
+##### Encoder加入了Cluster-Loss
+
+**Time：** 2021-7-11   **log：**log/c_atm/20news_clean_2021-07-11-21-32_topic20
+
+ 

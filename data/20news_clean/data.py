@@ -3,17 +3,20 @@ import pickle
 
 
 def onehot(data, min_length):
+    # index appear how much times
     return np.bincount(data, minlength=min_length)
 
 
 dataset_tr = 'train.txt.npy'
 data_tr = np.load(dataset_tr, allow_pickle=True, encoding='latin1')
+print("Train length:"+str(len(data_tr)))
 dataset_te = 'test.txt.npy'
 data_te = np.load(dataset_te, allow_pickle=True, encoding='latin1')
+print("Test length:"+str(len(data_te)))
 vocab = 'vocab.pkl'
 vocab = pickle.load(open(vocab, 'rb'))
 vocab_size = len(vocab)
-print(vocab)
+print(vocab_size,vocab)
 # --------------convert to one-hot representation------------------
 print("Converting data to one-hot representation")
 data_tr = np.array([onehot(doc.astype('int'), vocab_size) for doc in data_tr if np.sum(doc) != 0])

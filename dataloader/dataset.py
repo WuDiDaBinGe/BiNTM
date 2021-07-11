@@ -3,6 +3,7 @@
 # @Author  : WuDiDaBinGe
 # @FileName: dataset.py
 # @Software: PyCharm
+import copy
 import os
 import time
 
@@ -15,6 +16,7 @@ from gensim.models import TfidfModel
 import pickle
 from sklearn.feature_extraction.text import TfidfTransformer
 from tokenization import *
+from utils.tf_idf_data_argument import get_data_stats, TfIdfWordRep
 
 
 def onehot(data, min_length):
@@ -26,8 +28,8 @@ class DocDataset(Dataset):
                  rebuild=True, use_token=False):
         super(DocDataset, self).__init__()
         cwd = os.getcwd()
-        text_path = os.path.join(cwd, 'data', f'{task_name}_lines.txt') if text_path is None else text_path
-        tmp_dir = os.path.join(cwd, 'data', task_name)
+        text_path = os.path.join(cwd, '../data', f'{task_name}_lines.txt') if text_path is None else text_path
+        tmp_dir = os.path.join(cwd, '../data', task_name)
         self.txt_lines = [line.strip() for line in open(text_path, 'r')]
         self.use_tfidf = use_tfidf
         if not os.path.exists(tmp_dir):
@@ -41,7 +43,7 @@ class DocDataset(Dataset):
             self.dictionary.id2token = {v: k for k, v in self.dictionary.token2id.items()}
         else:
             if stopwords is None:
-                stopwords = set([l.strip() for l in open(os.path.join(cwd, 'data', 'stopwords'), 'r')])
+                stopwords = set([l.strip() for l in open(os.path.join(cwd, '../data', 'stopwords'), 'r')])
             print('Tokenizing...')
             if use_token:
                 self.docs = [line.split(' ') for line in self.txt_lines]
@@ -80,7 +82,7 @@ class DocDataset(Dataset):
                 gensim.corpora.MmCorpus.serialize(os.path.join(tmp_dir, 'tfidf.mm'), self.tfidf)
         self.vob_size = len(self.dictionary)
         self.num_docs = len(self.bows)
-
+        self.dictionary_id2token = {v: k for k, v in self.dictionary.token2id.items()}
         print(f'Processed {len(self.bows)} documents')
 
     def __getitem__(self, idx):
@@ -112,7 +114,8 @@ class DocNpyDataset(Dataset):
         cwd = os.getcwd()
         text_path = os.path.join(cwd, 'data', task_dir)
         dataset_tr = 'train.txt.npy'
-        data_tr = np.load(os.path.join(text_path, dataset_tr), allow_pickle=True, encoding='latin1')
+        self.data_tr_row = np.load(os.path.join(text_path, dataset_tr), allow_pickle=True, encoding='latin1')
+        self.data_tr_row = [doc for doc in self.data_tr_row if np.sum(doc) != 0 and len(doc) > 2]
         vocab_p = 'vocab.pkl'
         self.dictionary_token2id = pickle.load(open(os.path.join(text_path, vocab_p), 'rb'))
         self.vob_size = len(self.dictionary_token2id)
@@ -120,7 +123,7 @@ class DocNpyDataset(Dataset):
         print("Converting data to one-hot representation")
         # word frequent vector
         self.data_tr = np.array(
-            [onehot(doc.astype('int'), self.vob_size) for doc in data_tr if np.sum(doc) != 0])
+            [onehot(doc.astype('int'), self.vob_size) for doc in self.data_tr_row if np.sum(doc) != 0])
         self.num_docs = len(self.data_tr)
 
         self.use_tfidf = use_tfidf
@@ -142,6 +145,36 @@ class DocNpyDataset(Dataset):
         return self.num_docs
 
 
+class DataArgumentNpy(DocNpyDataset):
+    def __init__(self, task_dir, use_tfidf=True):
+        super(DataArgumentNpy, self).__init__(task_dir, use_tfidf)
+        self.data_argument_1 = copy.deepcopy(self.data_tr_row)
+        self.data_argument_2 = copy.deepcopy(self.data_tr_row)
+        data_status = get_data_stats(self.data_tr_row)
+        op = TfIdfWordRep(0.6, data_status)
+        # data argument by tf idf
+        for i in range(len(self.data_tr)):
+            op(self.data_argument_1[i])
+            op(self.data_argument_2[i])
+        # word frequent vector
+        self.data_tr_1 = np.array(
+            [onehot(doc.astype('int'), self.vob_size) for doc in self.data_argument_1 if np.sum(doc) != 0])
+        self.data_tr_2 = np.array(
+            [onehot(doc.astype('int'), self.vob_size) for doc in self.data_argument_2 if np.sum(doc) != 0])
+        if self.use_tfidf:
+            transformer = TfidfTransformer()  # get tf-idf weight
+            self.tfidf_1 = transformer.fit_transform(self.data_tr_1)
+            self.tfidf_1 = self.tfidf_1.toarray()
+            self.tfidf_2 = transformer.fit_transform(self.data_tr_2)
+            self.tfidf_2 = self.tfidf_2.toarray()
+
+    def __getitem__(self, idx):
+        if self.use_tfidf:
+            return self.tfidf[idx], self.tfidf_1[idx], self.tfidf_2[idx]
+        else:
+            return self.data_tr[idx], self.data_tr_1[idx], self.data_tr_2[idx]
+
+
 if __name__ == '__main__':
     # docSet = DocDataset('military')
     # dataloader = DataLoader(docSet, batch_size=64, shuffle=True, collate_fn=docSet.collate_fn)
@@ -154,7 +187,11 @@ if __name__ == '__main__':
     #     # normalize weights
     #     bows_real /= torch.sum(bows_real, dim=1, keepdim=True)
     #     print(bows_real.shape)
-    docSet_npy = DocNpyDataset('20news_clean')
+    # docSet_npy = DocNpyDataset('20news_clean')
+    # dataloader = DataLoader(docSet_npy, batch_size=64, shuffle=True)
+    # print('docSet.docs[10]:', docSet_npy.tfidf[10])
+    # print(next(iter(dataloader)).shape)
+    docSet_npy = DataArgumentNpy('20news_clean')
     dataloader = DataLoader(docSet_npy, batch_size=64, shuffle=True)
     print('docSet.docs[10]:', docSet_npy.tfidf[10])
-    print(next(iter(dataloader)).shape)
+    print(next(iter(dataloader))[0].shape)

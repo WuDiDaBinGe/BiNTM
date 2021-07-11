@@ -13,9 +13,8 @@ import torch.nn as nn
 import numpy as np
 from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader
-
-from gan import Generator, Encoder, Discriminator
-from utils import evaluate_topic_quality
+from model.gan  import Generator, Encoder, Discriminator
+from utils.utils import evaluate_topic_quality
 
 
 # Bi Neural Topic Model
@@ -27,8 +26,9 @@ class BNTM:
         self.hid_dim = hid_dim
         self.id2token = None
         self.task_name = task_name
-        # self.writer = SummaryWriter(f'log/{task_name}_{time.strftime("%Y-%m-%d-%H-%M", time.localtime())}')
-        self.writer = SummaryWriter('log/20news_clean_2021-06-27-10-38')
+        # self.writer = SummaryWriter(
+        #    f'log/{self.task_name}_{time.strftime("%Y-%m-%d-%H-%M", time.localtime())}_topic{self.n_topic}')
+        self.writer = SummaryWriter('log/20news_clean_2021-07-06-11-02_topic100')
         self.encoder = Encoder(v_dim=bow_dim, hid_dim=hid_dim, n_topic=n_topic)
         self.generator = Generator(v_dim=bow_dim, hid_dim=hid_dim, n_topic=n_topic)
         self.discriminator = Discriminator(v_dim=bow_dim, hid_dim=hid_dim, n_topic=n_topic)
@@ -46,7 +46,7 @@ class BNTM:
 
     def train(self, train_data, batch_size=64, clip=0.01, lr=1e-4, test_data=None, epochs=100, beta_1=0.5,
               beta_2=0.999, n_critic=5, clean_data=False, resume=False,
-              ckpt_path='models/checkpoint_20news_clean_20/ckpt_best_100000.pth'):
+              ckpt_path='models/checkpoint_20news_clean_100/ckpt_best_13500.pth'):
         self.generator.train()
         self.encoder.train()
         self.discriminator.train()
@@ -169,9 +169,6 @@ class BNTM:
         return np.mean(c_a), np.mean(c_p), np.mean(npmi)
 
     def interface_topic_words(self, clean_data=True, test_data=None):
-        if clean_data:
-            self.id2token = test_data.dictionary_id2token
-        else:
-            self.id2token = {v: k for k, v in test_data.dictionary.token2id.items()}
+        self.id2token = test_data.dictionary_id2token
         c_a, c_p, npmi = self.get_topic_coherence()
         print(f'c_a:{c_a},c_p:{c_p}, npmi:{npmi}')
