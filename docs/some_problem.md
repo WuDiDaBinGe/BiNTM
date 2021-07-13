@@ -9,3 +9,17 @@
 ##### 3. Batch Size and Learning rate
 
 ##### 4. 加到Encoder效果不好
+
+思考：
+
+1.  将对比学习部分加入到generator的部分？
+
+2. 结合Cluster-Instace Loss;Encoder使用Instance contrastive-loss，而Generator使用Cluter-Instance Loss.
+
+   Encorder+Instance和Cluster Loss效果不好
+
+3. 使用不同的Data argument的方法？可以参考**SCCL**论文中的方法
+
+4. 对比学习对向量进行**L2正则化**.
+
+​			

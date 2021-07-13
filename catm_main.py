@@ -37,8 +37,8 @@ parser.add_argument('--dist', type=str, default='gmm_std',
 parser.add_argument('--batch_size', type=int, default=512, help='Batch size (default=256)')
 parser.add_argument('--language', type=str, default='en', help='Dataset s language')
 parser.add_argument('--lr', type=float, default=8e-4, help='learning rate')
-parser.add_argument('--instance_temperature', type=float, default=0.5, help='contrastive learning temperature (0,1)')
-parser.add_argument('--cluster_temperature', type=float, default=1, help='contrastive learning temperature (0,1)')
+parser.add_argument('--instance_temperature', type=float, default=0.07, help='contrastive learning temperature (0,1)')
+parser.add_argument('--cluster_temperature', type=float, default=0.1, help='contrastive learning temperature (0,1)')
 parser.add_argument('--auto_adj', action='store_true',
                     help='To adjust the no_above ratio automatically (default:rm top 20)')
 
@@ -80,8 +80,9 @@ def main():
     voc_size = docSet.vob_size
 
     model = CATM(bow_dim=voc_size, n_topic=n_topic, hid_dim=1024, device=device, task_name=taskname)
-    model.train(train_data=docSet, batch_size=batch_size, test_data=docSet, epochs=num_epochs, n_critic=10, lr=lr,
-                clean_data=clean_data, resume=bkpt_continue, gamma_temperature=instance_temperature, gamma_cluster_temperature=cluster_temperature)
+    # TODO: 断点续训的时候需要改ckpt参数的路径
+    model.train_with_contra(train_data=docSet, batch_size=batch_size, test_data=docSet, epochs=num_epochs, n_critic=10, lr=lr,
+                clean_data=clean_data, resume=bkpt_continue, gamma_temperature=instance_temperature, gamma_cluster_temperature=cluster_temperature,ckpt_path="models_save/c_atm/checkpoint_2021-07-12-22-03_20news_clean_20/ckpt_best_13500.pth")
     topic_words = model.show_topic_words()
     print('\n'.join([str(lst) for lst in topic_words]))
     save_name = f'./ckpt/BNTM_{taskname}_tp{n_topic}_{time.strftime("%Y-%m-%d-%H-%M", time.localtime())}.ckpt'

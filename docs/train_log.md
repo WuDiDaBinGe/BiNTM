@@ -93,7 +93,7 @@ c_a:0.2101156221389105,c_p:0.2774334651257717, npmi:0.050271741293691205
 
 | epoch | topic num |   lr      | batch size |
 | :---: | :-------: | :-------: | :-------: |
-| 50000 |    50     |    1e-4   |    512     |
+| 50000 |    20    |    1e-4   |    512     |
 
 |                           评价指标                           |                           Loss曲线                           |
 | :----------------------------------------------------------: | :----------------------------------------------------------: |
@@ -113,6 +113,37 @@ Train Log:  log/c_atm/20news_clean_2021-07-09-22-19_topic20
 
 ##### Encoder加入了Cluster-Loss
 
-**Time：** 2021-7-11   **log：**log/c_atm/20news_clean_2021-07-11-21-32_topic20
+**Time：** 2021-7-11   
 
- 
+**log：**log/c_atm/20news_clean_2021-07-11-21-32_topic20
+
+**Instance temperature： 0.5 cluster temperature = 1**
+
+**记录**:评价指标不太行，Loss_E（红）下降，loss_D深蓝色是上升，loss_G蓝色可能收敛.对比学习的两个Loss收敛的很快。
+
+|                           评价指标                           |                           Loss曲线                           | 对比Loss                                                     |
+| :----------------------------------------------------------: | :----------------------------------------------------------: | ------------------------------------------------------------ |
+| ![image-20210712105608797](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210712105608797.png) | ![image-20210712105720047](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210712105720047.png) | ![image-20210712105704003](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210712105704003.png) |
+
+是不是因为temperature的设置问题？接下来改进temperature的值
+
+**改进了Temperature的值 算Contrastive-Loss时对向量进行L2正则化**
+
+**Time：** 2021-7-12   
+
+**log：**log/c_atm/20news_clean_2021-07-1-21-32_topic20
+
+**Instance temperature：** 0.07  
+
+|                           评价指标                           |                           Loss曲线                           | 对比Loss                                                     |
+| :----------------------------------------------------------: | :----------------------------------------------------------: | ------------------------------------------------------------ |
+| ![image-20210712203410243](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210712203410243.png) | ![image-20210712203454716](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210712203454716.png) | ![image-20210712203444479](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210712203444479.png) |
+
+训练了4000个epoch
+
+**改变batch_size = 256,并且为Instance-loss 赋予了Loss权重为0.1**
+
+|                           评价指标                           |                           Loss曲线                           | 对比Loss                                                     |
+| :----------------------------------------------------------: | :----------------------------------------------------------: | ------------------------------------------------------------ |
+| ![image-20210713174323347](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210713174323347.png) | ![image-20210713174358885](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210713174358885.png) | ![image-20210713174442718](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210713174442718.png) |
+

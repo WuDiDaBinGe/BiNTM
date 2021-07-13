@@ -51,10 +51,39 @@ class Discriminator(nn.Module):
     def __init__(self, n_topic, hid_dim, v_dim):
         super(Discriminator, self).__init__()
         self.discriminator = nn.Sequential(
-            * block(n_topic + v_dim, hid_dim),
+            *block(n_topic + v_dim, hid_dim),
             nn.Linear(hid_dim, 1),
         )
 
     def forward(self, reps):
         score = self.discriminator(reps)
         return score
+
+
+class ContrastiveDiscriminator(nn.Module):
+    def __init__(self, n_topic, v_dim, hid_features_dim, z_features_dim=128):
+        super(ContrastiveDiscriminator, self).__init__()
+        # doc hidden features
+        self.discriminator_encoder = nn.Sequential(
+            *block(v_dim, 2048),
+            *block(2048, 1024),
+            *block(1024, hid_features_dim),
+        )
+        # doc instance project for contrastive loss
+        self.project_head = nn.Sequential(
+            nn.Linear(hid_features_dim, hid_features_dim),
+            nn.ReLU(inplace=True),
+            nn.Linear(hid_features_dim, z_features_dim)
+        )
+        # doc hidden features + topic
+        self.score_head = nn.Sequential(
+            *block(hid_features_dim + n_topic, 256),
+            nn.Linear(256, 1)
+        )
+
+    def forward(self, topic_distribute, doc_bow):
+        doc_hidden_features = self.discriminator_encoder(doc_bow)
+        contrastive_features = self.project_head(doc_hidden_features)
+        p_join = torch.cat([topic_distribute, doc_bow], dim=1)
+        score = self.score_head(p_join)
+        return score, contrastive_features
