@@ -7,11 +7,13 @@ import collections
 import copy
 import json
 import math
+import torch
 import os
 import pickle
 import string
 from absl import flags
 import numpy as np
+from sklearn.feature_extraction.text import TfidfTransformer
 
 FLAGS = flags.FLAGS
 
@@ -49,7 +51,7 @@ class EfficientRandomGen(object):
 
 
 def get_data_stats(examples):
-    """Compute the IDF score for each word. Then compute the TF-IDF score."""
+    """Compute the IDF score for each word. Then compute the TF-IDF score. on the whole corpus"""
     word_doc_freq = collections.defaultdict(int)
     # Compute IDF
     for i in range(len(examples)):
@@ -94,6 +96,7 @@ class TfIdfWordRep(EfficientRandomGen):
         for key, value in tf_idf_items:
             self.tf_idf_keys += [key]
             self.tf_idf_values += [value]
+
         self.normalized_tf_idf = np.array(self.tf_idf_values)
         self.normalized_tf_idf = (self.normalized_tf_idf.max() - self.normalized_tf_idf)
         self.normalized_tf_idf = (self.normalized_tf_idf / self.normalized_tf_idf.sum())
@@ -103,6 +106,7 @@ class TfIdfWordRep(EfficientRandomGen):
     def get_replace_prob(self, all_words):
         """Compute the probability of replacing tokens in a sentence."""
         cur_tf_idf = collections.defaultdict(int)
+        # compute current tf idf
         for word in all_words:
             cur_tf_idf[word] += 1. / len(all_words) * self.idf[word]
         replace_prob = []
@@ -150,6 +154,29 @@ class TfIdfWordRep(EfficientRandomGen):
         #     filter_unicode(" ".join(str(self.token_list)))))
 
 
+def use_tfidf_del_weight(tfidf_weights, len_factor):
+    non_zero_num = len(torch.nonzero(tfidf_weights))
+    zero_num = len(tfidf_weights) - non_zero_num
+    wait_index = torch.argsort(tfidf_weights)[zero_num:zero_num + int(non_zero_num * len_factor)]
+    rand_prob_cache = torch.rand(int(non_zero_num * len_factor) + 2)
+    for i in range(len(wait_index)):
+        prob = 0.1 + i * (0.9 - 0.1) / len(wait_index)
+        if prob < rand_prob_cache[i]:
+            tfidf_weights[wait_index[i]] = 0
+    return tfidf_weights
+
+
+def batch_argument_del_tfidf(tfidf_weights_matrix, len_factor):
+    tfidf_weights_matrix_argument = copy.deepcopy(tfidf_weights_matrix)
+    for i in range(len(tfidf_weights_matrix_argument)):
+        tfidf_weights_matrix_argument[i] = use_tfidf_del_weight(tfidf_weights_matrix_argument[i],len_factor)
+    return tfidf_weights_matrix_argument
+
+
+def onehot(data, min_length):
+    return np.bincount(data, minlength=min_length)
+
+
 if __name__ == '__main__':
     cwd = os.getcwd()
     text_path = os.path.join('../', 'data', "20news_clean")
@@ -160,11 +187,24 @@ if __name__ == '__main__':
     vocab_p = 'vocab.pkl'
     dictionary_token2id = pickle.load(open(os.path.join(text_path, vocab_p), 'rb'))
     vob_size = len(dictionary_token2id)
-    data_status = get_data_stats(data_tr)
-    op = TfIdfWordRep(0.7, data_status)
-    x = (data_tr[0] == op(data_raw_1[0]))
-    y = (data_tr[0] == op(data_raw_2[0]))
-    print(np.where(x == True))
-    print(np.where(y == True))
-    print(np.bincount(x))
-    print(np.bincount(y))
+    data_tr = np.array(
+        [onehot(doc.astype('int'), vob_size) for doc in data_tr if np.sum(doc) != 0])
+    transformer = TfidfTransformer()  # get tf-idf weight
+    tfidf = transformer.fit_transform(data_tr)
+    tfidf = tfidf.toarray()
+    # data_status = get_data_stats(data_tr)
+    # op = TfIdfWordRep(0.7, data_status)
+    # x = (data_tr[0] == op(data_raw_1[0]))
+    # y = (data_tr[0] == op(data_raw_2[0]))
+    # print(np.where(x == True))
+    # print(np.where(y == True))
+    # print(np.bincount(x))
+    # print(np.bincount(y))
+    tfidf = tfidf / np.sum(tfidf, axis=1, keepdims=True)
+    tfidf = torch.tensor(tfidf)
+    tfidf = torch.rand((256, 1999))
+    print(tfidf)
+    data_argument_matrix = batch_argument_del_tfidf(tfidf, 0.3)
+    print(data_argument_matrix)
+    # print(len(np.nonzero(data_argument_matrix[0])[0]))
+    # print(len(np.nonzero(tfidf[0])[0]))

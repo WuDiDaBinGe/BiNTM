@@ -15,7 +15,7 @@ from model.atm_model import BNTM
 from dataloader.dataset import DocDataset, DocNpyDataset, DataArgumentNpy
 from multiprocessing import cpu_count
 
-from model.catm_model import CATM
+from model.catm_model import CATM, CBTM
 
 parser = argparse.ArgumentParser('Bidirectional Adversarial Topic model')
 parser.add_argument('--taskname', type=str, default='cnews10k', help='Taskname e.g cnews10k')
@@ -79,13 +79,18 @@ def main():
 
     voc_size = docSet.vob_size
 
-    model = CATM(bow_dim=voc_size, n_topic=n_topic, hid_dim=1024, device=device, task_name=taskname)
+    # model = CATM(bow_dim=voc_size, n_topic=n_topic, hid_dim=1024, device=device, task_name=taskname)
+    # # TODO: 断点续训的时候需要改ckpt参数的路径
+    # model.train_with_contra(train_data=docSet, batch_size=batch_size, test_data=docSet, epochs=num_epochs, n_critic=10, lr=lr,
+    #             clean_data=clean_data, resume=bkpt_continue, gamma_temperature=instance_temperature, gamma_cluster_temperature=cluster_temperature,ckpt_path="models_save/c_atm/checkpoint_2021-07-12-22-03_20news_clean_20/ckpt_best_13500.pth")
+    model = CBTM(bow_dim=voc_size, n_topic=n_topic, hid_dim=1024, device=device, task_name=taskname)
     # TODO: 断点续训的时候需要改ckpt参数的路径
-    model.train_with_contra(train_data=docSet, batch_size=batch_size, test_data=docSet, epochs=num_epochs, n_critic=10, lr=lr,
-                clean_data=clean_data, resume=bkpt_continue, gamma_temperature=instance_temperature, gamma_cluster_temperature=cluster_temperature,ckpt_path="models_save/c_atm/checkpoint_2021-07-12-22-03_20news_clean_20/ckpt_best_13500.pth")
+    model.train_with_contra(train_data=docSet, batch_size=batch_size, test_data=docSet, epochs=num_epochs, n_critic=10,
+                            lr=lr,
+                            clean_data=clean_data, resume=bkpt_continue, gamma_temperature=instance_temperature, ckpt_path='models_save/c_atm_discriminator/checkpoint_2021-07-14-21-54_20news_clean_20/ckpt_best_19000.pth')
     topic_words = model.show_topic_words()
     print('\n'.join([str(lst) for lst in topic_words]))
-    save_name = f'./ckpt/BNTM_{taskname}_tp{n_topic}_{time.strftime("%Y-%m-%d-%H-%M", time.localtime())}.ckpt'
+    save_name = f'./ckpt/c_atm_discriminator_{taskname}_tp{n_topic}_{time.strftime("%Y-%m-%d-%H-%M", time.localtime())}.ckpt'
     torch.save({'generator': model.generator.state_dict(), 'encoder': model.encoder.state_dict(),
                 'discriminator': model.discriminator.state_dict()}, save_name)
 

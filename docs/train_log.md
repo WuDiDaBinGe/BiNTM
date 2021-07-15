@@ -141,9 +141,57 @@ Train Log:  log/c_atm/20news_clean_2021-07-09-22-19_topic20
 
 训练了4000个epoch
 
+------
+
 **改变batch_size = 256,并且为Instance-loss 赋予了Loss权重为0.1**
+
+**Time:**2021-7-12-22-03
+
+**Log:**log/c_atm/20news_clean_2021-07-12-22-03_topic20
 
 |                           评价指标                           |                           Loss曲线                           | 对比Loss                                                     |
 | :----------------------------------------------------------: | :----------------------------------------------------------: | ------------------------------------------------------------ |
 | ![image-20210713174323347](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210713174323347.png) | ![image-20210713174358885](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210713174358885.png) | ![image-20210713174442718](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210713174442718.png) |
 
+------
+
+**使用了新的结构 在Discriminator上加上了project head以及Contrastive loss**
+
+```python
+# 模型结构为：
+    def __init__(self, n_topic, v_dim, hid_features_dim, z_features_dim=128):
+        super(ContrastiveDiscriminator, self).__init__()
+        # doc hidden features
+        self.discriminator_encoder = nn.Sequential(
+            *block(v_dim, 2048),
+            *block(2048, 1024),
+            *block(1024, hid_features_dim),
+        )
+        # doc instance project for contrastive loss
+        self.project_head = nn.Sequential(
+            nn.Linear(hid_features_dim, hid_features_dim),
+            nn.ReLU(inplace=True),
+            nn.Linear(hid_features_dim, z_features_dim)
+        )
+        # doc hidden features + topic
+        self.score_head = nn.Sequential(
+            *block(n_topic + hid_features_dim, 256),
+            nn.Linear(256, 1)
+        )
+
+    def forward(self, topic_distribute, doc_bow):
+        doc_hidden_features = self.discriminator_encoder(doc_bow)
+        contrastive_features = self.project_head(doc_hidden_features)
+        p_join = torch.cat([topic_distribute, doc_hidden_features], dim=1)
+        score = self.score_head(p_join)
+        return score, contrastive_features
+```
+
+* Time： 2021.07.14.16.06
+* Log：    log/c_atm_discriminator/20news_clean_2021-07-14-16-06_topic20
+
+|                           评价指标                           |                           Loss曲线                           | 对比Loss                                                     |
+| :----------------------------------------------------------: | :----------------------------------------------------------: | ------------------------------------------------------------ |
+| ![image-20210714190120589](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210714190120589.png) | ![image-20210714190137547](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210714190137547.png) | ![image-20210714190155773](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210714190155773.png) |
+
+由Loss可以看出D_loss很快收敛了，而且Contrastive Loss不收敛了上下震荡， 考虑是因为学习率太大的原因，可能是Discriminator结构复杂之后，原来的学习率不适应新的结构了。

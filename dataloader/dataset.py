@@ -150,12 +150,12 @@ class DataArgumentNpy(DocNpyDataset):
         super(DataArgumentNpy, self).__init__(task_dir, use_tfidf)
         self.data_argument_1 = copy.deepcopy(self.data_tr_row)
         self.data_argument_2 = copy.deepcopy(self.data_tr_row)
-        data_status = get_data_stats(self.data_tr_row)
-        op = TfIdfWordRep(0.6, data_status)
+        self.data_status = get_data_stats(self.data_tr_row)
+        self.op = TfIdfWordRep(0.6, self.data_status)
         # data argument by tf idf
         for i in range(len(self.data_tr)):
-            op(self.data_argument_1[i])
-            op(self.data_argument_2[i])
+            self.op(self.data_argument_1[i])
+            self.op(self.data_argument_2[i])
         # word frequent vector
         self.data_tr_1 = np.array(
             [onehot(doc.astype('int'), self.vob_size) for doc in self.data_argument_1 if np.sum(doc) != 0])
@@ -173,6 +173,8 @@ class DataArgumentNpy(DocNpyDataset):
             return self.tfidf[idx], self.tfidf_1[idx], self.tfidf_2[idx]
         else:
             return self.data_tr[idx], self.data_tr_1[idx], self.data_tr_2[idx]
+
+
 
 
 if __name__ == '__main__':

@@ -77,13 +77,13 @@ class ContrastiveDiscriminator(nn.Module):
         )
         # doc hidden features + topic
         self.score_head = nn.Sequential(
-            *block(hid_features_dim + n_topic, 256),
+            *block(n_topic + hid_features_dim, 256),
             nn.Linear(256, 1)
         )
 
     def forward(self, topic_distribute, doc_bow):
         doc_hidden_features = self.discriminator_encoder(doc_bow)
         contrastive_features = self.project_head(doc_hidden_features)
-        p_join = torch.cat([topic_distribute, doc_bow], dim=1)
+        p_join = torch.cat([topic_distribute, doc_hidden_features], dim=1)
         score = self.score_head(p_join)
         return score, contrastive_features
