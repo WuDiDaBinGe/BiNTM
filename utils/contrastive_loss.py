@@ -6,7 +6,7 @@
 import torch
 import torch.nn as nn
 import math
-
+import numpy as np
 
 class InstanceLoss(nn.Module):
     def __init__(self, batch_size, temperature, device):
@@ -98,6 +98,49 @@ class ClusterLoss(nn.Module):
         loss /= N
 
         return loss + ne_loss
+
+
+class Conditional_Contrastive_loss(torch.nn.Module):
+    def __init__(self, device, batch_size, pos_collected_numerator):
+        super(Conditional_Contrastive_loss, self).__init__()
+        self.device = device
+        self.batch_size = batch_size
+        self.pos_collected_numerator = pos_collected_numerator
+        self.calculate_similarity_matrix = self._calculate_similarity_matrix()
+        self.cosine_similarity = torch.nn.CosineSimilarity(dim=-1)
+
+    def _calculate_similarity_matrix(self):
+        return self._cosine_simililarity_matrix
+
+    def remove_diag(self, M):
+        h, w = M.shape
+        assert h == w, "h and w should be same"
+        mask = np.ones((h, w)) - np.eye(h)
+        mask = torch.from_numpy(mask)
+        mask = (mask).type(torch.bool).to(self.device)
+        return M[mask].view(h, -1)
+
+    def _cosine_simililarity_matrix(self, x, y):
+        v = self.cosine_similarity(x.unsqueeze(1), y.unsqueeze(0))
+        return v
+
+    def forward(self, inst_embed, proxy, negative_mask, labels, temperature, margin):
+        similarity_matrix = self.calculate_similarity_matrix(inst_embed, inst_embed)
+        instance_zone = torch.exp((self.remove_diag(similarity_matrix) - margin) / temperature)
+
+        inst2proxy_positive = torch.exp((self.cosine_similarity(inst_embed, proxy) - margin) / temperature)
+        if self.pos_collected_numerator:
+            mask_4_remove_negatives = negative_mask[labels]
+            mask_4_remove_negatives = self.remove_diag(mask_4_remove_negatives)
+            inst2inst_positives = instance_zone * mask_4_remove_negatives
+
+            numerator = inst2proxy_positive + inst2inst_positives.sum(dim=1)
+        else:
+            numerator = inst2proxy_positive
+
+        denomerator = torch.cat([torch.unsqueeze(inst2proxy_positive, dim=1), instance_zone], dim=1).sum(dim=1)
+        criterion = -torch.log(temperature * (numerator / denomerator)).mean()
+        return criterion
 
 
 if __name__ == '__main__':

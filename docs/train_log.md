@@ -47,7 +47,11 @@
 | :---: | :-------: |
 | ![](https://gitee.com/yxbLovewy/my-pictures/raw/master/Topic_Coherence_15000.svg) |    ![](/home/yxb/Pictures/Train_Loss_15000.svg)    |
 
+**Batch Size 256时的情况:**Batch size 可能不是影响训练因素
 
+|                           评价指标                           |                           Loss曲线                           |
+| :----------------------------------------------------------: | :----------------------------------------------------------: |
+| ![image-20210716091755973](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210716091755973.png) | ![image-20210716091809117](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210716091809117.png) |
 
 最好的断点训练的主题：
 
@@ -155,7 +159,7 @@ Train Log:  log/c_atm/20news_clean_2021-07-09-22-19_topic20
 
 ------
 
-**使用了新的结构 在Discriminator上加上了project head以及Contrastive loss**
+**使用了新的结构 在Discriminator上加上了project head以及Contrastive loss(Contrastive Loss只加上了对于原始文本的Data Contrastive Loss)**
 
 ```python
 # 模型结构为：
@@ -195,3 +199,22 @@ Train Log:  log/c_atm/20news_clean_2021-07-09-22-19_topic20
 | ![image-20210714190120589](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210714190120589.png) | ![image-20210714190137547](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210714190137547.png) | ![image-20210714190155773](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210714190155773.png) |
 
 由Loss可以看出D_loss很快收敛了，而且Contrastive Loss不收敛了上下震荡， 考虑是因为学习率太大的原因，可能是Discriminator结构复杂之后，原来的学习率不适应新的结构了。
+
+**调整了Discriminator的学习率 让他单独使用一个较小的学习率更新**
+
+|                           评价指标                           |                           Loss曲线                           | 对比Loss                                                     |
+| :----------------------------------------------------------: | :----------------------------------------------------------: | ------------------------------------------------------------ |
+| ![image-20210715151155744](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210715151155744.png) | ![image-20210715151209520](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210715151209520.png) | ![image-20210715151243575](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210715151243575.png) |
+| ![image-20210715151447694](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210715151447694.png) | ![image-20210715151459269](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210715151459269.png) | ![image-20210715151507625](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210715151507625.png) |
+
+此时的模型 产生了模型坍塌的情况，NPMI的值相比之前的改进强了一点儿
+
+```python
+['evil', 'fund', 'somehow', 'original', 'use', 'one', 'get', 'say', '_eos_', 'write']
+['evil', 'fund', 'somehow', 'original', 'people', 'believe', 'law', 'government', 'hope', 'go']
+['evil', 'fund', 'somehow', 'original', 'people', 'use', 'hope', 'authority', 'year', 'thus']
+['evil', 'fund', 'somehow', 'original', 'use', 'one', 'get', 'say', '_eos_', 'write']
+['evil', 'fund', 'somehow', 'original', 'hope', 'use', 'get', 'one', '_eos_', 'write']
+['evil', 'fund', 'somehow', 'original', 'hope', 'law', 'year', 'speak', 'people', 'police']
+```
+

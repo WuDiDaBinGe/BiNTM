@@ -4,6 +4,7 @@
 # @FileName: model.py
 # @Software: PyCharm
 import os
+import threading
 import time
 from typing import List, Any
 
@@ -13,7 +14,8 @@ import torch.nn as nn
 import numpy as np
 from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader
-from model.gan  import Generator, Encoder, Discriminator
+from model.gan import Generator, Encoder, Discriminator
+from utils.caculate_coherence import get_coherence
 from utils.utils import evaluate_topic_quality
 
 
@@ -26,9 +28,13 @@ class BNTM:
         self.hid_dim = hid_dim
         self.id2token = None
         self.task_name = task_name
+        self.max_npmi_step = 0
+        self.max_npmi_value = 0
+        self.logdir_name = "atm"
+        self.date = time.strftime("%Y-%m-%d-%H-%M", time.localtime())
         # self.writer = SummaryWriter(
-        #    f'log/{self.task_name}_{time.strftime("%Y-%m-%d-%H-%M", time.localtime())}_topic{self.n_topic}')
-        self.writer = SummaryWriter('log/20news_clean_2021-07-06-11-02_topic100')
+        #    f'log/atm/{self.task_name}_{time.strftime("%Y-%m-%d-%H-%M", time.localtime())}_topic{self.n_topic}')
+        self.writer = SummaryWriter('log/atm/20news_clean_2021-07-15-16-22_topic20')
         self.encoder = Encoder(v_dim=bow_dim, hid_dim=hid_dim, n_topic=n_topic)
         self.generator = Generator(v_dim=bow_dim, hid_dim=hid_dim, n_topic=n_topic)
         self.discriminator = Discriminator(v_dim=bow_dim, hid_dim=hid_dim, n_topic=n_topic)
@@ -46,7 +52,7 @@ class BNTM:
 
     def train(self, train_data, batch_size=64, clip=0.01, lr=1e-4, test_data=None, epochs=100, beta_1=0.5,
               beta_2=0.999, n_critic=5, clean_data=False, resume=False,
-              ckpt_path='models/checkpoint_20news_clean_100/ckpt_best_13500.pth'):
+              ckpt_path='models_save/atm/checkpoint_20news_clean_20/ckpt_best_1000.pth'):
         self.generator.train()
         self.encoder.train()
         self.discriminator.train()
@@ -71,6 +77,8 @@ class BNTM:
             optim_d.load_state_dict(checkpoint['optimizer_d'])
             optim_e.load_state_dict(checkpoint['optimizer_e'])
             start_epoch = checkpoint['epoch']
+            self.max_npmi_value = checkpoint['maxValue']
+            self.max_npmi_step = checkpoint['maxStep']
 
         for epoch in range(start_epoch + 1, epochs + 1):
             for iter_num, data in enumerate(data_loader):
@@ -120,21 +128,31 @@ class BNTM:
             if epoch % 250 == 0:
                 if test_data is not None:
                     c_a, c_p, npmi = self.get_topic_coherence()
+                    if self.max_npmi_value < npmi:
+                        self.max_npmi_value = npmi
+                        self.max_npmi_step = epoch
+                        self.save_model_ckpt(optim_g=optim_g, optim_e=optim_e, optim_d=optim_d, epoch=epoch,
+                                             max_step=self.max_npmi_step, max_value=self.max_npmi_value)
                     print(c_a, c_p, npmi)
+                    print("max_epoch:" + str(self.max_npmi_step) + "  max_value:" + str(self.max_npmi_value))
                     self.writer.add_scalars("Topic Coherence", {'c_a': c_a, 'c_p': c_p, 'npmi': npmi},
                                             epoch)
-            # save checkpoints
-            if epoch % 500 == 0:
-                checkpoint = {'generator': self.generator.state_dict(),
-                              'encoder': self.encoder.state_dict(),
-                              'discriminator': self.discriminator.state_dict(),
-                              'optimizer_g': optim_g.state_dict(),
-                              'optimizer_e': optim_e.state_dict(),
-                              'optimizer_d': optim_d.state_dict(),
-                              'epoch': epoch}
-                if not os.path.isdir(f"./models/checkpoint_{self.task_name}_{self.n_topic}"):
-                    os.mkdir(f"./models/checkpoint_{self.task_name}_{self.n_topic}")
-                torch.save(checkpoint, f'./models/checkpoint_{self.task_name}_{self.n_topic}/ckpt_best_{epoch}.pth')
+
+    def save_model_ckpt(self, optim_g, optim_e, optim_d, epoch, max_step, max_value):
+        checkpoint = {'generator': self.generator.state_dict(),
+                      'encoder': self.encoder.state_dict(),
+                      'discriminator': self.discriminator.state_dict(),
+                      'optimizer_g': optim_g.state_dict(),
+                      'optimizer_e': optim_e.state_dict(),
+                      'optimizer_d': optim_d.state_dict(),
+                      'epoch': epoch,
+                      'maxStep': max_step,
+                      'maxValue': max_value
+                      }
+        if not os.path.isdir(f"models_save/{self.logdir_name}/checkpoint_{self.task_name}_{self.n_topic}_{self.date}"):
+            os.mkdir(f"models_save/{self.logdir_name}/checkpoint_{self.task_name}_{self.n_topic}_{self.date}")
+        torch.save(checkpoint,
+                   f'models_save/{self.logdir_name}/checkpoint_{self.task_name}_{self.n_topic}_{self.date}/ckpt_best_{epoch}.pth')
 
     def show_topic_words(self, topic_id=None, topK=10):
         with torch.no_grad():
@@ -159,14 +177,7 @@ class BNTM:
     def get_topic_coherence(self):
         topic_words = self.show_topic_words()
         print('\n'.join([str(lst) for lst in topic_words]))
-        c_a, c_p, npmi, uci = [], [], [], []
-        palmetto = Palmetto(palmetto_uri='http://localhost:7777/palmetto-webapp/service/', timeout=200)
-        for word_per_topic in topic_words:
-            c_a.append(palmetto.get_coherence(word_per_topic, coherence_type='ca'))
-            c_p.append(palmetto.get_coherence(word_per_topic, coherence_type='cp'))
-            npmi.append(palmetto.get_coherence(word_per_topic, coherence_type='npmi'))
-            # uci.append(palmetto.get_coherence(word_per_topic, coherence_type='uci'))
-        return np.mean(c_a), np.mean(c_p), np.mean(npmi)
+        return get_coherence(topic_words)
 
     def interface_topic_words(self, clean_data=True, test_data=None):
         self.id2token = test_data.dictionary_id2token

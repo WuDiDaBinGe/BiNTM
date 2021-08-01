@@ -4,8 +4,6 @@
 # @FileName: dataset.py
 # @Software: PyCharm
 import copy
-import os
-import time
 
 import numpy as np
 import torch
@@ -111,7 +109,9 @@ class DocDataset(Dataset):
 class DocNpyDataset(Dataset):
     def __init__(self, task_dir, use_tfidf=True, no_below=1, no_above=0.1, stopwords=None):
         super(DocNpyDataset, self).__init__()
-        cwd = os.getcwd()
+        # file current dir
+        cwd = os.path.split(os.path.realpath(__file__))[0]
+        cwd = os.path.split(cwd)[0]
         text_path = os.path.join(cwd, 'data', task_dir)
         dataset_tr = 'train.txt.npy'
         self.data_tr_row = np.load(os.path.join(text_path, dataset_tr), allow_pickle=True, encoding='latin1')
@@ -175,8 +175,6 @@ class DataArgumentNpy(DocNpyDataset):
             return self.data_tr[idx], self.data_tr_1[idx], self.data_tr_2[idx]
 
 
-
-
 if __name__ == '__main__':
     # docSet = DocDataset('military')
     # dataloader = DataLoader(docSet, batch_size=64, shuffle=True, collate_fn=docSet.collate_fn)
@@ -189,11 +187,14 @@ if __name__ == '__main__':
     #     # normalize weights
     #     bows_real /= torch.sum(bows_real, dim=1, keepdim=True)
     #     print(bows_real.shape)
-    # docSet_npy = DocNpyDataset('20news_clean')
-    # dataloader = DataLoader(docSet_npy, batch_size=64, shuffle=True)
-    # print('docSet.docs[10]:', docSet_npy.tfidf[10])
-    # print(next(iter(dataloader)).shape)
-    docSet_npy = DataArgumentNpy('20news_clean')
+
+    docSet_npy = DocNpyDataset('20news_clean')
+    print(docSet_npy.vob_size)
     dataloader = DataLoader(docSet_npy, batch_size=64, shuffle=True)
     print('docSet.docs[10]:', docSet_npy.tfidf[10])
-    print(next(iter(dataloader))[0].shape)
+    print(next(iter(dataloader)).shape)
+
+    # docSet_npy = DataArgumentNpy('20news_clean')
+    # dataloader = DataLoader(docSet_npy, batch_size=64, shuffle=True)
+    # print('docSet.docs[10]:', docSet_npy.tfidf[10])
+    # print(next(iter(dataloader))[0].shape)

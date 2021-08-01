@@ -15,7 +15,7 @@ from model.atm_model import BNTM
 from dataloader.dataset import DocDataset, DocNpyDataset, DataArgumentNpy
 from multiprocessing import cpu_count
 
-from model.catm_model import CATM, CBTM
+from model.catm_model import CATM, CBTM, GCATM
 
 parser = argparse.ArgumentParser('Bidirectional Adversarial Topic model')
 parser.add_argument('--taskname', type=str, default='cnews10k', help='Taskname e.g cnews10k')
@@ -34,11 +34,11 @@ parser.add_argument('--rebuild', type=bool, default=True,
                     help='Whether to rebuild the corpus, such as tokenization, build dict etc.(default True)')
 parser.add_argument('--dist', type=str, default='gmm_std',
                     help='Prior distribution for latent vectors: (dirichlet,gmm_std,gmm_ctm,gaussian etc.)')
-parser.add_argument('--batch_size', type=int, default=512, help='Batch size (default=256)')
+parser.add_argument('--batch_size', type=int, default=64, help='Batch size (default=256)')
 parser.add_argument('--language', type=str, default='en', help='Dataset s language')
-parser.add_argument('--lr', type=float, default=8e-4, help='learning rate')
-parser.add_argument('--instance_temperature', type=float, default=0.07, help='contrastive learning temperature (0,1)')
-parser.add_argument('--cluster_temperature', type=float, default=0.1, help='contrastive learning temperature (0,1)')
+parser.add_argument('--lr', type=float, default=1e-4, help='learning rate')
+parser.add_argument('--instance_temperature', type=float, default=0.5, help='contrastive learning temperature (0,1)')
+parser.add_argument('--train', type=bool, default=False, help='whether train or inference')
 parser.add_argument('--auto_adj', action='store_true',
                     help='To adjust the no_above ratio automatically (default:rm top 20)')
 
@@ -60,15 +60,15 @@ def main():
     batch_size = args.batch_size
     lr = args.lr
     instance_temperature = args.instance_temperature
-    cluster_temperature = args.cluster_temperature
+    train_flag = args.train
     auto_adj = args.auto_adj
     language = args.language
     use_token = args.use_token
     clean_data = args.clean_data
-
     device = torch.device('cuda')
+    print(clean_data, taskname, batch_size, lr, train_flag)
     if clean_data:
-        docSet = DataArgumentNpy(taskname)
+        docSet = DocNpyDataset(taskname)
     else:
         docSet = DocDataset(taskname, no_below=no_below, no_above=no_above, rebuild=rebuild, use_tfidf=use_tfidf,
                             lang=language, use_token=use_token)
@@ -78,21 +78,33 @@ def main():
                                 use_tfidf=use_tfidf)
 
     voc_size = docSet.vob_size
-
-    # model = CATM(bow_dim=voc_size, n_topic=n_topic, hid_dim=1024, device=device, task_name=taskname)
-    # # TODO: 断点续训的时候需要改ckpt参数的路径
-    # model.train_with_contra(train_data=docSet, batch_size=batch_size, test_data=docSet, epochs=num_epochs, n_critic=10, lr=lr,
-    #             clean_data=clean_data, resume=bkpt_continue, gamma_temperature=instance_temperature, gamma_cluster_temperature=cluster_temperature,ckpt_path="models_save/c_atm/checkpoint_2021-07-12-22-03_20news_clean_20/ckpt_best_13500.pth")
-    model = CBTM(bow_dim=voc_size, n_topic=n_topic, hid_dim=1024, device=device, task_name=taskname)
-    # TODO: 断点续训的时候需要改ckpt参数的路径
-    model.train_with_contra(train_data=docSet, batch_size=batch_size, test_data=docSet, epochs=num_epochs, n_critic=10,
-                            lr=lr,
-                            clean_data=clean_data, resume=bkpt_continue, gamma_temperature=instance_temperature, ckpt_path='models_save/c_atm_discriminator/checkpoint_2021-07-14-21-54_20news_clean_20/ckpt_best_19000.pth')
-    topic_words = model.show_topic_words()
-    print('\n'.join([str(lst) for lst in topic_words]))
-    save_name = f'./ckpt/c_atm_discriminator_{taskname}_tp{n_topic}_{time.strftime("%Y-%m-%d-%H-%M", time.localtime())}.ckpt'
-    torch.save({'generator': model.generator.state_dict(), 'encoder': model.encoder.state_dict(),
-                'discriminator': model.discriminator.state_dict()}, save_name)
+    if train_flag:
+        print("Train.......")
+        print("batch:"+str(batch_size))
+        # model = CATM(bow_dim=voc_size, n_topic=n_topic, hid_dim=1024, device=device, task_name=taskname)
+        # # TODO: 断点续训的时候需要改ckpt参数的路径
+        # model.train_with_contra(train_data=docSet, batch_size=batch_size, test_data=docSet, epochs=num_epochs, n_critic=10, lr=lr,
+        #             clean_data=clean_data, resume=bkpt_continue, gamma_temperature=instance_temperature, gamma_cluster_temperature=cluster_temperature,ckpt_path="models_save/c_atm/checkpoint_2021-07-12-22-03_20news_clean_20/ckpt_best_13500.pth")
+        model = GCATM(bow_dim=voc_size, n_topic=n_topic, hid_dim=1024, device=device, task_name=taskname)
+        # TODO: 断点续训的时候需要改ckpt参数的路径
+        model.train_with_contra(train_data=docSet, batch_size=batch_size, test_data=docSet, epochs=num_epochs,
+                                n_critic=10,
+                                lr=lr,
+                                clean_data=clean_data, resume=bkpt_continue, gamma_temperature=instance_temperature,
+                                ckpt_path='models_save/gc_atm/checkpoint_20news_clean_100_2021-07-27-21-04/ckpt_best_14750.pth')
+        topic_words = model.show_topic_words()
+        print('\n'.join([str(lst) for lst in topic_words]))
+        print(f'max_epoch:{model.max_npmi_step},max_value:{model.max_npmi_value}')
+        save_name = f'./models_save/gc_atm_{taskname}_tp{n_topic}_{time.strftime("%Y-%m-%d-%H-%M", time.localtime())}.ckpt'
+        torch.save({'generator': model.generator.state_dict(), 'encoder': model.encoder.state_dict(),
+                    'discriminator': model.discriminator.state_dict()}, save_name)
+    else:
+        print("Inference.......")
+        model = GCATM(bow_dim=voc_size, n_topic=n_topic, hid_dim=1024, device=device, task_name=taskname)
+        # TODO:推断的时候需要修改的最好的断点的数据
+        model.init_by_checkpoints(
+            ckpt_path='models_save/gc_atm/checkpoint_2021-07-22-22-18_20news_clean_20/ckpt_best_7000.pth')
+        model.interface_topic_words(clean_data=clean_data, test_data=docSet)
 
 
 if __name__ == "__main__":
