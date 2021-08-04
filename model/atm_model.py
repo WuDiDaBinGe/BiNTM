@@ -152,7 +152,7 @@ class BNTM:
         if not os.path.isdir(f"models_save/{self.logdir_name}/checkpoint_{self.task_name}_{self.n_topic}_{self.date}"):
             os.mkdir(f"models_save/{self.logdir_name}/checkpoint_{self.task_name}_{self.n_topic}_{self.date}")
         torch.save(checkpoint,
-                   f'models_save/{self.logdir_name}/checkpoint_{self.task_name}_{self.n_topic}_{self.date}/ckpt_best_{epoch}.pth')
+                   f'models_save/{self.logdir_name}/checkpoint_{self.task_name}_{self.n_topic}_{self.date}/ckpt_best.pth')
 
     def show_topic_words(self, topic_id=None, topK=10):
         with torch.no_grad():

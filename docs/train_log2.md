@@ -105,3 +105,33 @@ NPMI值统计：
 | 0.07203 | 0.06753 | 0.04457 | 0.03741 | 0.0246 |
 
 **temperature:** 设置较大的值，更容易分开
+
+------
+
+**超参数改变**
+
+**Time：**2021-08-01-15-40
+
+**Log：**20news_clean_2021-08-01-15-40_topic50
+
+**Method:**generator的学习率lr/10
+
+| batch size | clip | learning rate | beta_1 | beta_2 | n_critic | optimizer | temperature |
+| :--------: | :--: | :-----------: | :----: | :----: | :------: | :-------: | :---------: |
+|    256     | 0.01 |     1e-4      |  0.5   | 0.999  |    5     |   Adam    |   **0.5**   |
+
+**Topic Num=50的时候效果如下**
+
+|                           评价指标                           |                           Loss曲线                           | 对比Loss                                                     |
+| :----------------------------------------------------------: | :----------------------------------------------------------: | ------------------------------------------------------------ |
+| ![image-20210801214031198](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20210801214031198.png) | ![image-20210801214043495](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20210801214043495.png) | ![image-20210801214051086](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20210801214051086.png) |
+| ![image-20210724111357482](/home/yxb/.config/Typora/typora-user-images/image-20210724111357482.png) | ![image-20210724111341895](/home/yxb/.config/Typora/typora-user-images/image-20210724111341895.png) | ![image-20210801214113503](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20210801214113503.png) |
+
+**max_value:0.04911**
+
+***
+
+topic_num=100, **max_value = 0.03307**
+
+topic_num = 
+

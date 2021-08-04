@@ -4,7 +4,6 @@
 # @FileName: catm_model.py
 # @Software: PyCharm
 import os
-
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -14,6 +13,7 @@ import numpy as np
 import time
 from model.atm_model import BNTM
 from model.cgan import ContrastiveDiscriminator, ContraGenerator
+from utils.caculate_coherence import get_coherence_by_local_jar
 from utils.contrastive_loss import InstanceLoss, ClusterLoss
 from utils.tf_idf_data_argument import batch_argument_del_tfidf
 
@@ -321,7 +321,7 @@ class GCATM(BNTM):
             self.id2token = {v: k for k, v in train_data.dictionary.token2id.items()}
             data_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=4,
                                      collate_fn=train_data.collate_fn, drop_last=True)
-        optim_g = torch.optim.Adam(self.generator.parameters(), lr=lr / 100, betas=(beta_1, beta_2))
+        optim_g = torch.optim.Adam(self.generator.parameters(), lr=lr / 10, betas=(beta_1, beta_2))
         optim_e = torch.optim.Adam(self.encoder.parameters(), lr=lr, betas=(beta_1, beta_2))
         optim_d = torch.optim.Adam(self.discriminator.parameters(), lr=lr, betas=(beta_1, beta_2))
         loss_E, loss_G, loss_d = 0, 0, 0
@@ -332,7 +332,7 @@ class GCATM(BNTM):
                 f'log/{self.logdir_name}/{self.task_name}_{self.date}_topic{self.n_topic}')
         if resume and ckpt_path is not None:
             # TODO: 断点续训的时候需要改路径
-            self.writer = SummaryWriter(f'log/{self.logdir_name}/20news_clean_2021-07-27-14-40_topic100')
+            self.writer = SummaryWriter(f'log/{self.logdir_name}/20news_clean_2021-08-03-16-52_topic100')
             checkpoint = torch.load(ckpt_path)
             self.discriminator.load_state_dict(checkpoint['discriminator'])
             self.generator.load_state_dict(checkpoint['generator'])
@@ -413,3 +413,9 @@ class GCATM(BNTM):
                     print("max_epoch:" + str(self.max_npmi_step) + "  max_value:" + str(self.max_npmi_value))
                     self.writer.add_scalars("Topic Coherence", {'c_a': c_a, 'c_p': c_p, 'npmi': npmi},
                                             epoch)
+
+    # 使用
+    def get_topic_coherence(self):
+        topic_words = self.show_topic_words()
+        print('\n'.join([str(lst) for lst in topic_words]))
+        return get_coherence_by_local_jar(topic_words)

@@ -91,7 +91,7 @@ def main():
                                 n_critic=10,
                                 lr=lr,
                                 clean_data=clean_data, resume=bkpt_continue, gamma_temperature=instance_temperature,
-                                ckpt_path='models_save/gc_atm/checkpoint_20news_clean_100_2021-07-27-21-04/ckpt_best_14750.pth')
+                                ckpt_path='models_save/gc_atm/checkpoint_20news_clean_100_2021-08-03-16-52/ckpt_best_3250.pth')
         topic_words = model.show_topic_words()
         print('\n'.join([str(lst) for lst in topic_words]))
         print(f'max_epoch:{model.max_npmi_step},max_value:{model.max_npmi_value}')
