@@ -8,6 +8,7 @@ import torch.nn as nn
 import math
 import numpy as np
 
+
 class InstanceLoss(nn.Module):
     def __init__(self, batch_size, temperature, device):
         super(InstanceLoss, self).__init__()
@@ -124,10 +125,10 @@ class Conditional_Contrastive_loss(torch.nn.Module):
         v = self.cosine_similarity(x.unsqueeze(1), y.unsqueeze(0))
         return v
 
-    def forward(self, inst_embed, proxy, negative_mask, labels, temperature, margin):
+    def forward(self, inst_embed, proxy, negative_mask, labels, temperature, margin=0):
         similarity_matrix = self.calculate_similarity_matrix(inst_embed, inst_embed)
         instance_zone = torch.exp((self.remove_diag(similarity_matrix) - margin) / temperature)
-
+        # 计算每个instance 与他的标签embedding的相似度
         inst2proxy_positive = torch.exp((self.cosine_similarity(inst_embed, proxy) - margin) / temperature)
 
         if self.pos_collected_numerator:
@@ -144,8 +145,26 @@ class Conditional_Contrastive_loss(torch.nn.Module):
         return criterion
 
 
+def make_mask(labels, n_cls, mask_negatives, device):
+    labels = labels.detach().cpu().numpy()
+    n_samples = labels.shape[0]
+    if mask_negatives:
+        mask_multi, target = np.zeros([n_cls, n_samples]), 1.0
+    else:
+        mask_multi, target = np.ones([n_cls, n_samples]), 0.0
+
+    for c in range(n_cls):
+        c_indices = np.where(labels == c)
+        mask_multi[c, c_indices] = target
+
+    return torch.tensor(mask_multi).type(torch.long)
+
+
 if __name__ == '__main__':
-    a = torch.ones((64, 20))
+    device = torch.device('cuda')
+    a = torch.rand((64, 20))
     b = torch.rand((64, 20))
-    criten_instance = ClusterLoss(20, temperature=0.5, device=torch.device("cuda"))
-    print(criten_instance(a, b))
+    labels = torch.randint(low=0, high=5, size=(64,))
+    negetive_mask = make_mask(labels, 5, True, device)
+    criten_instance = Conditional_Contrastive_loss(device, 64, pos_collected_numerator=True)
+    print(criten_instance(a, b, negetive_mask, labels, 0.1))

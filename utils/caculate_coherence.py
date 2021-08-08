@@ -18,11 +18,13 @@ from palmettopy.palmetto import Palmetto
 def prcess_result(result):
     result = result.strip().split('\n')
     res = 0
+    count = 0
     for line in result:
         res_list = line.strip().split('\t')
         if len(res_list) == 3:
             res += float(res_list[1])
-    return res
+            count += 1
+    return res/count
 
 
 def calculate_coherence_jar(topic_file, ret, coherence_type):
@@ -70,7 +72,7 @@ def write_file(topic_words, filename):
 
 
 def get_coherence_by_local_jar(topic_words):
-    filename = "topic_words"
+    filename = f"topic_words_{len(topic_words)}"
     write_file(topic_words, filename)
     thread_pool = []
     ret = {'C_A': 0, 'C_P': 0, 'NPMI': 0}

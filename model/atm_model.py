@@ -15,7 +15,7 @@ import numpy as np
 from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader
 from model.gan import Generator, Encoder, Discriminator
-from utils.caculate_coherence import get_coherence
+from utils.caculate_coherence import get_coherence_by_local_jar
 from utils.utils import evaluate_topic_quality
 
 

@@ -43,7 +43,7 @@ class ContraGenerator(nn.Module):
         bow_out = self.generator_head(hid_features)
 
         z_features = self.project_head(hid_features)
-        return bow_out, topic_embedding, z_features
+        return bow_out, topic_embedding, z_features, topic_label
 
     def inference(self, theta):
         hid_features = self.generator_encoder(theta)

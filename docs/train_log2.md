@@ -127,6 +127,10 @@ NPMI值统计：
 | ![image-20210801214031198](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20210801214031198.png) | ![image-20210801214043495](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20210801214043495.png) | ![image-20210801214051086](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20210801214051086.png) |
 | ![image-20210724111357482](/home/yxb/.config/Typora/typora-user-images/image-20210724111357482.png) | ![image-20210724111341895](/home/yxb/.config/Typora/typora-user-images/image-20210724111341895.png) | ![image-20210801214113503](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20210801214113503.png) |
 
+**Log:**2021-08-03-16-52
+
+调整温度参数$/gamma=0.5$​：
+
 **max_value:0.04911**
 
 ***
@@ -134,4 +138,8 @@ NPMI值统计：
 topic_num=100, **max_value = 0.03307**
 
 topic_num = 
+
+使用**2C Loss**代替InfoNCE Loss
+
+
 

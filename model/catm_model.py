@@ -14,7 +14,7 @@ import time
 from model.atm_model import BNTM
 from model.cgan import ContrastiveDiscriminator, ContraGenerator
 from utils.caculate_coherence import get_coherence_by_local_jar
-from utils.contrastive_loss import InstanceLoss, ClusterLoss
+from utils.contrastive_loss import InstanceLoss, ClusterLoss, Conditional_Contrastive_loss
 from utils.tf_idf_data_argument import batch_argument_del_tfidf
 
 
@@ -312,7 +312,9 @@ class GCATM(BNTM):
         self.encoder.train()
         self.discriminator.train()
         # instance-loss
-        contrastive_loss_function = InstanceLoss(batch_size, gamma_temperature, self.device)
+        # contrastive_loss_function = InstanceLoss(batch_size, gamma_temperature, self.device)
+        contrastive_loss_function = Conditional_Contrastive_loss(device=self.device, batch_size=batch_size,
+                                                                 pos_collected_numerator=True)
         start_epoch = -1
         if clean_data:
             self.id2token = train_data.dictionary_id2token
@@ -379,11 +381,14 @@ class GCATM(BNTM):
                 if iter_num % n_critic == 0:
                     # train generator and encoder
                     optim_g.zero_grad()
-                    fake_bow, topic_embedding, z_features = self.generator(topic_fake)
+                    fake_bow, topic_embedding, z_features, labels = self.generator(topic_fake)
                     score = self.discriminator(torch.cat([topic_fake, fake_bow], dim=1))
                     loss_G = -torch.mean(score)
-                    contrastive_loss = contrastive_loss_function(F.normalize(topic_embedding, dim=1),
-                                                                 F.normalize(z_features, dim=1))
+                    fake_cls_mask = self.make_mask(labels, self.n_topic, mask_negatives=True)
+                    contrastive_loss = contrastive_loss_function(F.normalize(z_features, dim=1),
+                                                                 F.normalize(topic_embedding, dim=1),
+                                                                 fake_cls_mask, labels, gamma_temperature
+                                                                 )
                     loss_total_g = loss_G + contrastive_loss
                     loss_total_g.backward()
                     optim_g.step()
@@ -414,8 +419,22 @@ class GCATM(BNTM):
                     self.writer.add_scalars("Topic Coherence", {'c_a': c_a, 'c_p': c_p, 'npmi': npmi},
                                             epoch)
 
-    # 使用
+    # 使用local npmi
     def get_topic_coherence(self):
         topic_words = self.show_topic_words()
         print('\n'.join([str(lst) for lst in topic_words]))
         return get_coherence_by_local_jar(topic_words)
+
+    def make_mask(self, labels, n_cls, mask_negatives):
+        labels = labels.detach().cpu().numpy()
+        n_samples = labels.shape[0]
+        if mask_negatives:
+            mask_multi, target = np.zeros([n_cls, n_samples]), 1.0
+        else:
+            mask_multi, target = np.ones([n_cls, n_samples]), 0.0
+
+        for c in range(n_cls):
+            c_indices = np.where(labels == c)
+            mask_multi[c, c_indices] = target
+
+        return torch.tensor(mask_multi).type(torch.long).to(self.device)
