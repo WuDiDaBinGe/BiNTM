@@ -32,9 +32,9 @@ class BNTM:
         self.max_npmi_value = 0
         self.logdir_name = "atm"
         self.date = time.strftime("%Y-%m-%d-%H-%M", time.localtime())
-        # self.writer = SummaryWriter(
-        #    f'log/atm/{self.task_name}_{time.strftime("%Y-%m-%d-%H-%M", time.localtime())}_topic{self.n_topic}')
-        self.writer = SummaryWriter('log/atm/20news_clean_2021-07-15-16-22_topic20')
+        self.writer = SummaryWriter(
+           f'log/atm/{self.task_name}_{time.strftime("%Y-%m-%d-%H-%M", time.localtime())}_topic{self.n_topic}')
+        # self.writer = SummaryWriter('log/atm/20news_clean_2021-07-15-16-22_topic20')
         self.encoder = Encoder(v_dim=bow_dim, hid_dim=hid_dim, n_topic=n_topic)
         self.generator = Generator(v_dim=bow_dim, hid_dim=hid_dim, n_topic=n_topic)
         self.discriminator = Discriminator(v_dim=bow_dim, hid_dim=hid_dim, n_topic=n_topic)
@@ -174,12 +174,27 @@ class BNTM:
         print('\n'.join([str(lst) for lst in topic_words]))
         return evaluate_topic_quality(topic_words, test_data, taskname=self.task_name, calc4each=calc4each)
 
-    def get_topic_coherence(self):
-        topic_words = self.show_topic_words()
-        print('\n'.join([str(lst) for lst in topic_words]))
-        return get_coherence(topic_words)
-
     def interface_topic_words(self, clean_data=True, test_data=None):
         self.id2token = test_data.dictionary_id2token
         c_a, c_p, npmi = self.get_topic_coherence()
         print(f'c_a:{c_a},c_p:{c_p}, npmi:{npmi}')
+
+    # 使用local npmi
+    def get_topic_coherence(self):
+        topic_words = self.show_topic_words()
+        print('\n'.join([str(lst) for lst in topic_words]))
+        return get_coherence_by_local_jar(topic_words)
+
+    def make_mask(self, labels, n_cls, mask_negatives):
+        labels = labels.detach().cpu().numpy()
+        n_samples = labels.shape[0]
+        if mask_negatives:
+            mask_multi, target = np.zeros([n_cls, n_samples]), 1.0
+        else:
+            mask_multi, target = np.ones([n_cls, n_samples]), 0.0
+
+        for c in range(n_cls):
+            c_indices = np.where(labels == c)
+            mask_multi[c, c_indices] = target
+
+        return torch.tensor(mask_multi).type(torch.long).to(self.device)

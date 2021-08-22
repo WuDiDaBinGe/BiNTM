@@ -15,7 +15,6 @@ def block(in_feat, out_feat, normalize=True):
     layers.append(nn.LeakyReLU(inplace=True))
     return layers
 
-
 class ContraGenerator(nn.Module):
     def __init__(self, n_topic, hid_features_dim, v_dim, c_embedding_z_dim=128):
         super(ContraGenerator, self).__init__()
@@ -23,15 +22,16 @@ class ContraGenerator(nn.Module):
         self.generator_encoder = nn.Sequential(
             *block(n_topic, hid_features_dim),
         )
+        self.generator_head = nn.Sequential(
+            nn.Linear(hid_features_dim, v_dim),
+            nn.Softmax(dim=1)
+        )
+        # self.softmax = nn.Softmax(dim=1)
         # doc instance project for contrastive loss
         self.project_head = nn.Sequential(
             nn.Linear(hid_features_dim, hid_features_dim),
             nn.ReLU(inplace=True),
-            nn.Linear(hid_features_dim, c_embedding_z_dim)
-        )
-        self.generator_head = nn.Sequential(
-            nn.Linear(hid_features_dim, v_dim),
-            nn.Softmax(dim=1)
+            nn.Linear(hid_features_dim, c_embedding_z_dim),
         )
 
     def forward(self, theta):

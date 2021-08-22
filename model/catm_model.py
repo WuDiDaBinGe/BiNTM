@@ -312,9 +312,9 @@ class GCATM(BNTM):
         self.encoder.train()
         self.discriminator.train()
         # instance-loss
-        # contrastive_loss_function = InstanceLoss(batch_size, gamma_temperature, self.device)
-        contrastive_loss_function = Conditional_Contrastive_loss(device=self.device, batch_size=batch_size,
-                                                                 pos_collected_numerator=True)
+        contrastive_loss_function = InstanceLoss(batch_size, gamma_temperature, self.device)
+        # contrastive_loss_function = Conditional_Contrastive_loss(device=self.device, batch_size=batch_size,
+        #                                                          pos_collected_numerator=True)
         start_epoch = -1
         if clean_data:
             self.id2token = train_data.dictionary_id2token
@@ -323,7 +323,7 @@ class GCATM(BNTM):
             self.id2token = {v: k for k, v in train_data.dictionary.token2id.items()}
             data_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=4,
                                      collate_fn=train_data.collate_fn, drop_last=True)
-        optim_g = torch.optim.Adam(self.generator.parameters(), lr=lr / 10, betas=(beta_1, beta_2))
+        optim_g = torch.optim.Adam(self.generator.parameters(), lr=lr/100, betas=(beta_1, beta_2))
         optim_e = torch.optim.Adam(self.encoder.parameters(), lr=lr, betas=(beta_1, beta_2))
         optim_d = torch.optim.Adam(self.discriminator.parameters(), lr=lr, betas=(beta_1, beta_2))
         loss_E, loss_G, loss_d = 0, 0, 0
@@ -334,7 +334,7 @@ class GCATM(BNTM):
                 f'log/{self.logdir_name}/{self.task_name}_{self.date}_topic{self.n_topic}')
         if resume and ckpt_path is not None:
             # TODO: 断点续训的时候需要改路径
-            self.writer = SummaryWriter(f'log/{self.logdir_name}/20news_clean_2021-08-03-16-52_topic100')
+            self.writer = SummaryWriter(f'log/{self.logdir_name}/20news_clean_2021-08-21-11-08_topic30')
             checkpoint = torch.load(ckpt_path)
             self.discriminator.load_state_dict(checkpoint['discriminator'])
             self.generator.load_state_dict(checkpoint['generator'])
@@ -385,10 +385,12 @@ class GCATM(BNTM):
                     score = self.discriminator(torch.cat([topic_fake, fake_bow], dim=1))
                     loss_G = -torch.mean(score)
                     fake_cls_mask = self.make_mask(labels, self.n_topic, mask_negatives=True)
+                    # contrastive_loss = contrastive_loss_function(F.normalize(z_features, dim=1),
+                    #                                              F.normalize(topic_embedding, dim=1),
+                    #                                              fake_cls_mask, labels, gamma_temperature
+                    #                                              )
                     contrastive_loss = contrastive_loss_function(F.normalize(z_features, dim=1),
-                                                                 F.normalize(topic_embedding, dim=1),
-                                                                 fake_cls_mask, labels, gamma_temperature
-                                                                 )
+                                                                 F.normalize(topic_embedding, dim=1))
                     loss_total_g = loss_G + contrastive_loss
                     loss_total_g.backward()
                     optim_g.step()

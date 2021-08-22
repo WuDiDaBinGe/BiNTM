@@ -11,6 +11,7 @@
 import torch
 import argparse
 import time
+import numpy as np
 from model.atm_model import BNTM
 from dataloader.dataset import DocDataset, DocNpyDataset, DataArgumentNpy
 from multiprocessing import cpu_count
@@ -43,7 +44,9 @@ parser.add_argument('--auto_adj', action='store_true',
                     help='To adjust the no_above ratio automatically (default:rm top 20)')
 
 args = parser.parse_args()
-
+np.random.seed(1)
+torch.manual_seed(1)
+torch.cuda.manual_seed_all(1)
 
 def main():
     global args
@@ -91,7 +94,7 @@ def main():
                                 n_critic=10,
                                 lr=lr,
                                 clean_data=clean_data, resume=bkpt_continue, gamma_temperature=instance_temperature,
-                                ckpt_path='models_save/gc_atm/checkpoint_20news_clean_100_2021-08-03-16-52/ckpt_best_3250.pth')
+                                ckpt_path='models_save/gc_atm/checkpoint_20news_clean_30_2021-08-21-11-08/ckpt_best.pth')
         topic_words = model.show_topic_words()
         print('\n'.join([str(lst) for lst in topic_words]))
         print(f'max_epoch:{model.max_npmi_step},max_value:{model.max_npmi_value}')
