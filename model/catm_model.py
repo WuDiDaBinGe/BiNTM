@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 import numpy as np
 import time
 from model.atm_model import BNTM
-from model.cgan import ContrastiveDiscriminator, ContraGenerator
+from model.cgan import ContrastiveDiscriminator, ContraGenerator, ContraMeanGenerator, ContraMeanGeneratorWordEmbedding
 from utils.caculate_coherence import get_coherence_by_local_jar
 from utils.contrastive_loss import InstanceLoss, ClusterLoss, Conditional_Contrastive_loss
 from utils.tf_idf_data_argument import batch_argument_del_tfidf
@@ -287,7 +287,7 @@ class CBTM(BNTM):
                               'optimizer_d': optim_d.state_dict(),
                               'epoch': epoch}
                 check_dir = f"models_save/c_atm_discriminator/checkpoint_{self.date}_{self.task_name}_{self.n_topic}"
-                if not os.path.isdir(check_dir):
+                if not os.path.exists(check_dir):
                     os.mkdir(check_dir)
                 torch.save(checkpoint, os.path.join(check_dir, f"ckpt_best_{epoch}.pth"))
 
@@ -301,7 +301,7 @@ class GCATM(BNTM):
         super(GCATM, self).__init__(n_topic, bow_dim, hid_dim, device, task_name)
         self.date = time.strftime("%Y-%m-%d-%H-%M", time.localtime())
         self.logdir_name = "gc_atm"
-        self.generator = ContraGenerator(n_topic=n_topic, hid_features_dim=hid_dim, v_dim=bow_dim)
+        self.generator = ContraMeanGeneratorWordEmbedding(n_topic=n_topic, hid_features_dim=hid_dim, v_dim=bow_dim)
         if device is not None:
             self.generator = self.generator.to(device)
 
@@ -334,7 +334,7 @@ class GCATM(BNTM):
                 f'log/{self.logdir_name}/{self.task_name}_{self.date}_topic{self.n_topic}')
         if resume and ckpt_path is not None:
             # TODO: 断点续训的时候需要改路径
-            self.writer = SummaryWriter(f'log/{self.logdir_name}/20news_clean_2021-08-21-11-08_topic30')
+            self.writer = SummaryWriter(f'log/{self.logdir_name}/20news_clean_2021-08-23-14-54_topic100')
             checkpoint = torch.load(ckpt_path)
             self.discriminator.load_state_dict(checkpoint['discriminator'])
             self.generator.load_state_dict(checkpoint['generator'])
@@ -345,7 +345,8 @@ class GCATM(BNTM):
             start_epoch = checkpoint['epoch']
             self.max_npmi_value = checkpoint['maxValue']
             self.max_npmi_step = checkpoint['maxStep']
-
+        inputs_embedding = torch.LongTensor([[i for i in range(self.n_topic)]]*batch_size).to(self.device)
+        inputs_word_embedding = torch.LongTensor([[i for i in range(self.v_dim)]]*batch_size).to(self.device)
         for epoch in range(start_epoch + 1, epochs + 1):
             for iter_num, data in enumerate(data_loader):
                 if clean_data:
@@ -362,7 +363,7 @@ class GCATM(BNTM):
                 # sample
                 topic_fake = torch.from_numpy(np.random.dirichlet(alpha=1.0 * np.ones(self.n_topic) / self.n_topic,
                                                                   size=len(bows_real))).float().to(self.device)
-                bows_fake = self.generator(topic_fake)[0].detach()
+                bows_fake = self.generator(topic_fake, inputs_embedding, inputs_word_embedding)[0].detach()
 
                 # use detach() to stop the gradient backward p(frozen the g and e parameters)
                 # advertise loss
@@ -381,7 +382,7 @@ class GCATM(BNTM):
                 if iter_num % n_critic == 0:
                     # train generator and encoder
                     optim_g.zero_grad()
-                    fake_bow, topic_embedding, z_features, labels = self.generator(topic_fake)
+                    fake_bow, topic_embedding, z_features, labels = self.generator(topic_fake, inputs_embedding, inputs_word_embedding)
                     score = self.discriminator(torch.cat([topic_fake, fake_bow], dim=1))
                     loss_G = -torch.mean(score)
                     fake_cls_mask = self.make_mask(labels, self.n_topic, mask_negatives=True)

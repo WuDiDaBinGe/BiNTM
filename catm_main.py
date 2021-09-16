@@ -35,10 +35,10 @@ parser.add_argument('--rebuild', type=bool, default=True,
                     help='Whether to rebuild the corpus, such as tokenization, build dict etc.(default True)')
 parser.add_argument('--dist', type=str, default='gmm_std',
                     help='Prior distribution for latent vectors: (dirichlet,gmm_std,gmm_ctm,gaussian etc.)')
-parser.add_argument('--batch_size', type=int, default=64, help='Batch size (default=256)')
+parser.add_argument('--batch_size', type=int, default=512, help='Batch size (default=256)')
 parser.add_argument('--language', type=str, default='en', help='Dataset s language')
 parser.add_argument('--lr', type=float, default=1e-4, help='learning rate')
-parser.add_argument('--instance_temperature', type=float, default=0.5, help='contrastive learning temperature (0,1)')
+parser.add_argument('--instance_temperature', type=float, default=0.1, help='contrastive learning temperature (0,1)')
 parser.add_argument('--train', type=bool, default=False, help='whether train or inference')
 parser.add_argument('--auto_adj', action='store_true',
                     help='To adjust the no_above ratio automatically (default:rm top 20)')
@@ -94,7 +94,7 @@ def main():
                                 n_critic=10,
                                 lr=lr,
                                 clean_data=clean_data, resume=bkpt_continue, gamma_temperature=instance_temperature,
-                                ckpt_path='models_save/gc_atm/checkpoint_20news_clean_30_2021-08-21-11-08/ckpt_best.pth')
+                                ckpt_path='models_save/gc_atm/checkpoint_20news_clean_100_2021-08-23-14-54/ckpt_best.pth')
         topic_words = model.show_topic_words()
         print('\n'.join([str(lst) for lst in topic_words]))
         print(f'max_epoch:{model.max_npmi_step},max_value:{model.max_npmi_value}')

@@ -15,6 +15,7 @@ def block(in_feat, out_feat, normalize=True):
     layers.append(nn.LeakyReLU(inplace=True))
     return layers
 
+
 class ContraGenerator(nn.Module):
     def __init__(self, n_topic, hid_features_dim, v_dim, c_embedding_z_dim=128):
         super(ContraGenerator, self).__init__()
@@ -51,6 +52,36 @@ class ContraGenerator(nn.Module):
         return bow_out
 
 
+class ContraMeanGenerator(ContraGenerator):
+    def __init__(self, n_topic, hid_features_dim, v_dim, c_embedding_z_dim=128):
+        super(ContraMeanGenerator, self).__init__(n_topic, hid_features_dim, v_dim, c_embedding_z_dim=128)
+        self.topic_num = n_topic
+        self.embedding_sum = nn.EmbeddingBag(num_embeddings=n_topic, embedding_dim=c_embedding_z_dim, mode='sum')
+
+    def forward(self, theta, inputs_):
+        topic_label = torch.argmax(theta, dim=1)
+        topic_embedding = self.embedding_sum(inputs_, per_sample_weights=theta).squeeze(dim=0)
+        hid_features = self.generator_encoder(theta)
+        bow_out = self.generator_head(hid_features)
+
+        z_features = self.project_head(hid_features)
+        return bow_out, topic_embedding, z_features, topic_label
+
+class ContraMeanGeneratorWordEmbedding(ContraGenerator):
+    def __init__(self, n_topic, hid_features_dim, v_dim, c_embedding_z_dim=200):
+        super(ContraMeanGeneratorWordEmbedding, self).__init__(n_topic, hid_features_dim, v_dim, c_embedding_z_dim=200)
+        self.topic_num = n_topic
+        self.topic_embedding = nn.EmbeddingBag(num_embeddings=n_topic, embedding_dim=c_embedding_z_dim, mode='sum')
+        self.word_embedding = nn.EmbeddingBag(num_embeddings=v_dim, embedding_dim=c_embedding_z_dim, mode='sum')
+
+    def forward(self, theta, topic_inputs, word_inputs):
+        topic_label = torch.argmax(theta, dim=1)
+        topic_embedding = self.topic_embedding(topic_inputs, per_sample_weights=theta).squeeze(dim=0)
+        hid_features = self.generator_encoder(theta)
+        bow_out = self.generator_head(hid_features)
+
+        doc_embedding = self.word_embedding(word_inputs, per_sample_weights=bow_out).squeeze(dim=0)
+        return bow_out, topic_embedding, doc_embedding, topic_label
 class ContrastiveDiscriminator(nn.Module):
     def __init__(self, n_topic, v_dim, hid_features_dim, z_features_dim=128):
         super(ContrastiveDiscriminator, self).__init__()

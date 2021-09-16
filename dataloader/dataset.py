@@ -18,6 +18,7 @@ from utils.tf_idf_data_argument import get_data_stats, TfIdfWordRep
 
 
 def onehot(data, min_length):
+    # return word frequent vector
     return np.bincount(data, minlength=min_length)
 
 
@@ -173,6 +174,10 @@ class DataArgumentNpy(DocNpyDataset):
             return self.tfidf[idx], self.tfidf_1[idx], self.tfidf_2[idx]
         else:
             return self.data_tr[idx], self.data_tr_1[idx], self.data_tr_2[idx]
+
+
+
+
 
 
 if __name__ == '__main__':
