@@ -22,29 +22,31 @@ class Generator(nn.Module):
         self.generator = nn.Sequential(
             *block(n_topic, hid_dim),
             nn.Linear(hid_dim, v_dim),
-            nn.Softmax(dim=1)
         )
+        self.softmax = nn.Softmax(dim=1)
 
     def forward(self, inputs):
         output = self.generator(inputs)
-        return output
+        return self.softmax(output)
 
     def inference(self, theta):
-        return self.generator(theta)
+        return self.softmax(self.generator(theta))
 
 
 class Encoder(nn.Module):
     def __init__(self, v_dim, hid_dim, n_topic):
         super(Encoder, self).__init__()
+        self.encoder_hid = nn.Sequential(
+            *block(v_dim, hid_dim)
+        )
         self.encoder = nn.Sequential(
-            *block(v_dim, hid_dim),
             nn.Linear(hid_dim, n_topic),
-            nn.Softmax(dim=1),
+            nn.Softmax(dim=1)
         )
 
     def forward(self, inputs):
-        output = self.encoder(inputs)
-        return output
+        output = self.encoder_hid(inputs)
+        return self.encoder(output)
 
 
 class Discriminator(nn.Module):
@@ -58,6 +60,3 @@ class Discriminator(nn.Module):
     def forward(self, reps):
         score = self.discriminator(reps)
         return score
-
-
-

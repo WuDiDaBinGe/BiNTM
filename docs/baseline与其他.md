@@ -208,32 +208,33 @@ Train Log:  log/c_atm/20news_clean_2021-07-09-22-19_topic20
 
 ```python
 # 模型结构为：
-    def __init__(self, n_topic, v_dim, hid_features_dim, z_features_dim=128):
-        super(ContrastiveDiscriminator, self).__init__()
-        # doc hidden features
-        self.discriminator_encoder = nn.Sequential(
-            *block(v_dim, 2048),
-            *block(2048, 1024),
-            *block(1024, hid_features_dim),
-        )
-        # doc instance project for contrastive loss
-        self.project_head = nn.Sequential(
-            nn.Linear(hid_features_dim, hid_features_dim),
-            nn.ReLU(inplace=True),
-            nn.Linear(hid_features_dim, z_features_dim)
-        )
-        # doc hidden features + topic
-        self.score_head = nn.Sequential(
-            *block(n_topic + hid_features_dim, 256),
-            nn.Linear(256, 1)
-        )
+def __init__(self, n_topic, v_dim, hid_features_dim, z_features_dim=128):
+    super(ContrastiveDiscriminator, self).__init__()
+    # doc hidden features
+    self.discriminator_encoder = nn.Sequential(
+        *block(v_dim, 2048),
+        *block(2048, 1024),
+        *block(1024, hid_features_dim),
+    )
+    # doc instance project for contrastive loss
+    self.bow_project_head = nn.Sequential(
+        nn.Linear(hid_features_dim, hid_features_dim),
+        nn.ReLU(inplace=True),
+        nn.Linear(hid_features_dim, z_features_dim)
+    )
+    # doc hidden features + topic
+    self.score_head = nn.Sequential(
+        *block(n_topic + hid_features_dim, 256),
+        nn.Linear(256, 1)
+    )
 
-    def forward(self, topic_distribute, doc_bow):
-        doc_hidden_features = self.discriminator_encoder(doc_bow)
-        contrastive_features = self.project_head(doc_hidden_features)
-        p_join = torch.cat([topic_distribute, doc_hidden_features], dim=1)
-        score = self.score_head(p_join)
-        return score, contrastive_features
+
+def forward(self, topic_distribute, doc_bow):
+    doc_hidden_features = self.discriminator_encoder(doc_bow)
+    contrastive_features = self.bow_project_head(doc_hidden_features)
+    p_join = torch.cat([topic_distribute, doc_hidden_features], dim=1)
+    score = self.score_head(p_join)
+    return score, contrastive_features
 ```
 
 * Time： 2021.07.14.16.06

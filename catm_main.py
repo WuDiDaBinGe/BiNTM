@@ -8,10 +8,14 @@
 # @Author  : WuDiDaBinGe
 # @FileName: main.py
 # @Software: PyCharm
+import random
+
 import torch
 import argparse
 import time
 import numpy as np
+from torch.nn.functional import gumbel_softmax
+
 from model.atm_model import BNTM
 from dataloader.dataset import DocDataset, DocNpyDataset, DataArgumentNpy
 from multiprocessing import cpu_count
@@ -37,16 +41,24 @@ parser.add_argument('--dist', type=str, default='gmm_std',
                     help='Prior distribution for latent vectors: (dirichlet,gmm_std,gmm_ctm,gaussian etc.)')
 parser.add_argument('--batch_size', type=int, default=512, help='Batch size (default=256)')
 parser.add_argument('--language', type=str, default='en', help='Dataset s language')
-parser.add_argument('--lr', type=float, default=1e-4, help='learning rate')
-parser.add_argument('--instance_temperature', type=float, default=0.1, help='contrastive learning temperature (0,1)')
+parser.add_argument('--lr', type=float, default=2e-4, help='learning rate')
+parser.add_argument('--instance_temperature', type=float, default=0.5, help='contrastive learning temperature (0,1)')
 parser.add_argument('--train', type=bool, default=False, help='whether train or inference')
 parser.add_argument('--auto_adj', action='store_true',
                     help='To adjust the no_above ratio automatically (default:rm top 20)')
 
+
+def setup_seed(seed):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.backends.cudnn.deterministic = True
+
+
 args = parser.parse_args()
-np.random.seed(1)
-torch.manual_seed(1)
-torch.cuda.manual_seed_all(1)
+
 
 def main():
     global args
@@ -83,22 +95,22 @@ def main():
     voc_size = docSet.vob_size
     if train_flag:
         print("Train.......")
-        print("batch:"+str(batch_size))
+        print("batch:" + str(batch_size))
         # model = CATM(bow_dim=voc_size, n_topic=n_topic, hid_dim=1024, device=device, task_name=taskname)
         # # TODO: 断点续训的时候需要改ckpt参数的路径
         # model.train_with_contra(train_data=docSet, batch_size=batch_size, test_data=docSet, epochs=num_epochs, n_critic=10, lr=lr,
         #             clean_data=clean_data, resume=bkpt_continue, gamma_temperature=instance_temperature, gamma_cluster_temperature=cluster_temperature,ckpt_path="models_save/c_atm/checkpoint_2021-07-12-22-03_20news_clean_20/ckpt_best_13500.pth")
-        model = GCATM(bow_dim=voc_size, n_topic=n_topic, hid_dim=1024, device=device, task_name=taskname)
+        model = CBTM(bow_dim=voc_size, n_topic=n_topic, hid_dim=1024, device=device, task_name=taskname)
         # TODO: 断点续训的时候需要改ckpt参数的路径
         model.train_with_contra(train_data=docSet, batch_size=batch_size, test_data=docSet, epochs=num_epochs,
                                 n_critic=10,
                                 lr=lr,
                                 clean_data=clean_data, resume=bkpt_continue, gamma_temperature=instance_temperature,
-                                ckpt_path='models_save/gc_atm/checkpoint_20news_clean_100_2021-08-23-14-54/ckpt_best.pth')
+                                ckpt_path='models_save/c_atm_discriminator/checkpoint_20news_clean_100_2021-08-23-14-54/ckpt_best.pth')
         topic_words = model.show_topic_words()
         print('\n'.join([str(lst) for lst in topic_words]))
         print(f'max_epoch:{model.max_npmi_step},max_value:{model.max_npmi_value}')
-        save_name = f'./models_save/gc_atm_{taskname}_tp{n_topic}_{time.strftime("%Y-%m-%d-%H-%M", time.localtime())}.ckpt'
+        save_name = f'./models_save/dc_atm{taskname}_tp{n_topic}_{time.strftime("%Y-%m-%d-%H-%M", time.localtime())}.ckpt'
         torch.save({'generator': model.generator.state_dict(), 'encoder': model.encoder.state_dict(),
                     'discriminator': model.discriminator.state_dict()}, save_name)
     else:
@@ -111,4 +123,5 @@ def main():
 
 
 if __name__ == "__main__":
+    # setup_seed(20)
     main()

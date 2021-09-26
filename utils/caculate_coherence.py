@@ -71,8 +71,9 @@ def write_file(topic_words, filename):
     f.write(words)
 
 
-def get_coherence_by_local_jar(topic_words):
-    filename = f"topic_words_{len(topic_words)}"
+def get_coherence_by_local_jar(topic_words, date):
+    date = time.strftime("%Y-%m-%d-%H-%M", time.localtime())
+    filename = f"topic_words_{len(topic_words)}_{date}"
     write_file(topic_words, filename)
     thread_pool = []
     ret = {'C_A': 0, 'C_P': 0, 'NPMI': 0}

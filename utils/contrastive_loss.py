@@ -126,6 +126,7 @@ class Conditional_Contrastive_loss(torch.nn.Module):
         return v
 
     def forward(self, inst_embed, proxy, negative_mask, labels, temperature, margin=0):
+        # batch_size * batch_size
         similarity_matrix = self.calculate_similarity_matrix(inst_embed, inst_embed)
         instance_zone = torch.exp((self.remove_diag(similarity_matrix) - margin) / temperature)
         # 计算每个instance 与他的标签embedding的相似度
@@ -141,6 +142,7 @@ class Conditional_Contrastive_loss(torch.nn.Module):
             numerator = inst2proxy_positive
 
         denomerator = torch.cat([torch.unsqueeze(inst2proxy_positive, dim=1), instance_zone], dim=1).sum(dim=1)
+        # 乘 这个temperature的意义是什么
         criterion = -torch.log(temperature * (numerator / denomerator)).mean()
         return criterion
 

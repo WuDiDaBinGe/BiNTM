@@ -20,7 +20,7 @@ from utils.utils import evaluate_topic_quality
 
 
 # Bi Neural Topic Model
-class BNTM:
+class BNTM(object):
     def __init__(self, n_topic, bow_dim, hid_dim, device=None, task_name=None):
         super(BNTM, self).__init__()
         self.n_topic = n_topic
@@ -33,7 +33,7 @@ class BNTM:
         self.logdir_name = "atm"
         self.date = time.strftime("%Y-%m-%d-%H-%M", time.localtime())
         self.writer = SummaryWriter(
-           f'log/atm/{self.task_name}_{time.strftime("%Y-%m-%d-%H-%M", time.localtime())}_topic{self.n_topic}')
+            f'log/atm/{self.task_name}_{time.strftime("%Y-%m-%d-%H-%M", time.localtime())}_topic{self.n_topic}')
         # self.writer = SummaryWriter('log/atm/20news_clean_2021-07-15-16-22_topic20')
         self.encoder = Encoder(v_dim=bow_dim, hid_dim=hid_dim, n_topic=n_topic)
         self.generator = Generator(v_dim=bow_dim, hid_dim=hid_dim, n_topic=n_topic)
@@ -43,6 +43,8 @@ class BNTM:
             self.generator = self.generator.to(device)
             self.encoder = self.encoder.to(device)
             self.discriminator = self.discriminator.to(device)
+        self.max_npmi_value = 0
+        self.max_npmi_step = 0
 
     def init_by_checkpoints(self, ckpt_path='models/checkpoint_20news_clean/ckpt_best_16500.pth'):
         checkpoint = torch.load(ckpt_path)
@@ -183,17 +185,19 @@ class BNTM:
     def get_topic_coherence(self):
         topic_words = self.show_topic_words()
         print('\n'.join([str(lst) for lst in topic_words]))
-        return get_coherence_by_local_jar(topic_words)
+        return get_coherence_by_local_jar(topic_words, self.date)
 
     def make_mask(self, labels, n_cls, mask_negatives):
         labels = labels.detach().cpu().numpy()
         n_samples = labels.shape[0]
         if mask_negatives:
+            # n_topic* batch
             mask_multi, target = np.zeros([n_cls, n_samples]), 1.0
         else:
             mask_multi, target = np.ones([n_cls, n_samples]), 0.0
 
         for c in range(n_cls):
+            # batch_Idx
             c_indices = np.where(labels == c)
             mask_multi[c, c_indices] = target
 
