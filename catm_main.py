@@ -39,11 +39,12 @@ parser.add_argument('--rebuild', type=bool, default=True,
                     help='Whether to rebuild the corpus, such as tokenization, build dict etc.(default True)')
 parser.add_argument('--dist', type=str, default='gmm_std',
                     help='Prior distribution for latent vectors: (dirichlet,gmm_std,gmm_ctm,gaussian etc.)')
-parser.add_argument('--batch_size', type=int, default=512, help='Batch size (default=256)')
+parser.add_argument('--batch_size', type=int, default=64, help='Batch size (default=256)')
 parser.add_argument('--language', type=str, default='en', help='Dataset s language')
-parser.add_argument('--lr', type=float, default=2e-4, help='learning rate')
+parser.add_argument('--lr', type=float, default=1e-4, help='learning rate')
 parser.add_argument('--instance_temperature', type=float, default=0.5, help='contrastive learning temperature (0,1)')
 parser.add_argument('--train', type=bool, default=False, help='whether train or inference')
+parser.add_argument('--n_critic', type=int, default=10, help='n_d')
 parser.add_argument('--auto_adj', action='store_true',
                     help='To adjust the no_above ratio automatically (default:rm top 20)')
 
@@ -67,11 +68,9 @@ def main():
     no_above = args.no_above
     num_epochs = args.num_epochs
     n_topic = args.n_topic
-    n_cpu = cpu_count() - 2 if cpu_count() > 2 else 2
     bkpt_continue = args.bkpt_continue
     use_tfidf = args.use_tfidf
     rebuild = args.rebuild
-    dist = args.dist
     batch_size = args.batch_size
     lr = args.lr
     instance_temperature = args.instance_temperature
@@ -80,8 +79,9 @@ def main():
     language = args.language
     use_token = args.use_token
     clean_data = args.clean_data
+    n_critic = args.n_critic
     device = torch.device('cuda')
-    print(clean_data, taskname, batch_size, lr, train_flag)
+    print(bkpt_continue, taskname, batch_size, lr, train_flag)
     if clean_data:
         docSet = DocNpyDataset(taskname)
     else:
@@ -100,10 +100,10 @@ def main():
         # # TODO: 断点续训的时候需要改ckpt参数的路径
         # model.train_with_contra(train_data=docSet, batch_size=batch_size, test_data=docSet, epochs=num_epochs, n_critic=10, lr=lr,
         #             clean_data=clean_data, resume=bkpt_continue, gamma_temperature=instance_temperature, gamma_cluster_temperature=cluster_temperature,ckpt_path="models_save/c_atm/checkpoint_2021-07-12-22-03_20news_clean_20/ckpt_best_13500.pth")
-        model = CBTM(bow_dim=voc_size, n_topic=n_topic, hid_dim=1024, device=device, task_name=taskname)
+        model = GCATM(bow_dim=voc_size, n_topic=n_topic, hid_dim=1024, device=device, task_name=taskname)
         # TODO: 断点续训的时候需要改ckpt参数的路径
         model.train_with_contra(train_data=docSet, batch_size=batch_size, test_data=docSet, epochs=num_epochs,
-                                n_critic=10,
+                                n_critic=n_critic,
                                 lr=lr,
                                 clean_data=clean_data, resume=bkpt_continue, gamma_temperature=instance_temperature,
                                 ckpt_path='models_save/c_atm_discriminator/checkpoint_20news_clean_100_2021-08-23-14-54/ckpt_best.pth')

@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 import numpy as np
 import time
 from model.atm_model import BNTM
-from model.cgan import ContrastiveDiscriminator, ContraGenerator, ContraMeanGenerator, ContraMeanGeneratorWordEmbedding
+from model.cgan import ContrastiveDiscriminator, ContraGenerator, ContraMeanGenerator, WordEmbeddingDiscriminator
 from utils.caculate_coherence import get_coherence_by_local_jar
 from utils.contrastive_loss import InstanceLoss, ClusterLoss, Conditional_Contrastive_loss
 from utils.tf_idf_data_argument import batch_argument_del_tfidf
@@ -170,7 +170,7 @@ class CBTM(BNTM):
 
     def train_with_contra(self, train_data, gamma_temperature, batch_size=512, clip=0.01,
                           lr=8e-4, test_data=None, epochs=100, beta_1=0.5,
-                          beta_2=0.999, n_critic=5, clean_data=False, resume=False, ckpt_path=None):
+                          beta_2=0.999, n_critic=2, clean_data=False, resume=False, ckpt_path=None):
         self.generator.train()
         self.encoder.train()
         self.discriminator.train()
@@ -255,8 +255,10 @@ class CBTM(BNTM):
                     # train  generator
                     # --------------------
                     optim_g.zero_grad()
-                    fake_bow_score, fake_topic_score, fake_total_score, doc_embed, label_embed = self.discriminator(topic_fake, self.generator(topic_fake))
-                    loss_G = -(torch.mean(fake_bow_score) + torch.mean(fake_topic_score) + torch.mean(fake_total_score))/3
+                    fake_bow_score, fake_topic_score, fake_total_score, doc_embed, label_embed = self.discriminator(
+                        topic_fake, self.generator(topic_fake))
+                    loss_G = -(torch.mean(fake_bow_score) + torch.mean(fake_topic_score) + torch.mean(fake_total_score))
+                    loss_G = loss_G / 3
                     if epoch > epochs:
                         labels = torch.argmax(topic_fake, dim=1)
                         fake_cls_mask_g = self.make_mask(labels, self.n_topic, mask_negatives=True)
@@ -272,7 +274,8 @@ class CBTM(BNTM):
                     # --------------------
                     optim_e.zero_grad()
                     encode_topic = self.encoder(bows_real)
-                    real_bow_score, real_topic_score, real_total_score, doc_embed, label_embed = self.discriminator(encode_topic, bows_real)
+                    real_bow_score, real_topic_score, real_total_score, doc_embed, label_embed = self.discriminator(
+                        encode_topic, bows_real)
                     loss_E = torch.mean(real_bow_score) + torch.mean(real_topic_score) + torch.mean(real_total_score)
                     loss_E = loss_E / 3
                     if epoch > epochs:
@@ -299,7 +302,7 @@ class CBTM(BNTM):
                                          "generator_contra_loss": contrastive_loss_fake_g}, epoch)
             if epoch % 250 == 0:
                 if test_data is not None:
-                    c_a, c_p, npmi = self.get_topic_coherence()
+                    c_a, c_p, npmi = self.get_topic_coherence(train_data.task_name)
                     if self.max_npmi_value < npmi:
                         self.max_npmi_value = npmi
                         self.max_npmi_step = epoch
@@ -321,7 +324,7 @@ class GCATM(BNTM):
         super(GCATM, self).__init__(n_topic, bow_dim, hid_dim, device, task_name)
         self.date = time.strftime("%Y-%m-%d-%H-%M", time.localtime())
         self.logdir_name = "gc_atm"
-        self.generator = ContraMeanGeneratorWordEmbedding(n_topic=n_topic, hid_features_dim=hid_dim, v_dim=bow_dim)
+        self.generator = ContraMeanGenerator(n_topic=n_topic, hid_features_dim=hid_dim, v_dim=bow_dim)
         if device is not None:
             self.generator = self.generator.to(device)
 
@@ -343,7 +346,13 @@ class GCATM(BNTM):
             self.id2token = {v: k for k, v in train_data.dictionary.token2id.items()}
             data_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=4,
                                      collate_fn=train_data.collate_fn, drop_last=True)
-        optim_g = torch.optim.Adam(self.generator.parameters(), lr=lr / 100, betas=(beta_1, beta_2))
+        optim_g = torch.optim.Adam([
+            {'params': [p for n, p in self.generator.named_parameters() if 'generator' in n]},
+            {'params': [p for n, p in self.generator.named_parameters() if 'embedding' in n or 'project_head' in n],
+             'lr': lr * 10}
+        ]
+            , lr=lr, betas=(beta_1, beta_2))
+        # 优化对比学习的Loss
         optim_e = torch.optim.Adam(self.encoder.parameters(), lr=lr, betas=(beta_1, beta_2))
         optim_d = torch.optim.Adam(self.discriminator.parameters(), lr=lr, betas=(beta_1, beta_2))
         loss_E, loss_G, loss_d = 0, 0, 0
@@ -383,7 +392,7 @@ class GCATM(BNTM):
                 # sample
                 topic_fake = torch.from_numpy(np.random.dirichlet(alpha=1.0 * np.ones(self.n_topic) / self.n_topic,
                                                                   size=len(bows_real))).float().to(self.device)
-                bows_fake = self.generator(topic_fake, inputs_embedding, inputs_word_embedding)[0].detach()
+                bows_fake = self.generator(topic_fake, inputs_embedding)[0].detach()
 
                 # use detach() to stop the gradient backward p(frozen the g and e parameters)
                 # advertise loss
@@ -402,8 +411,7 @@ class GCATM(BNTM):
                 if iter_num % n_critic == 0:
                     # train generator and encoder
                     optim_g.zero_grad()
-                    fake_bow, topic_embedding, z_features, labels = self.generator(topic_fake, inputs_embedding,
-                                                                                   inputs_word_embedding)
+                    fake_bow, topic_embedding, z_features, labels = self.generator(topic_fake, inputs_embedding)
                     score = self.discriminator(torch.cat([topic_fake, fake_bow], dim=1))
                     loss_G = -torch.mean(score)
                     fake_cls_mask = self.make_mask(labels, self.n_topic, mask_negatives=True)
@@ -412,8 +420,16 @@ class GCATM(BNTM):
                     #                                              fake_cls_mask, labels, gamma_temperature
                     #                                              )
                     contrastive_loss = contrastive_loss_function(F.normalize(z_features, dim=1),
-                                                                 F.normalize(topic_embedding, dim=1))
+                                                                 F.normalize(topic_embedding, dim=1)) / 100
+
+                    # loss_G.backward(retain_graph=True)
+                    # back_1 = self.check_grad()
+                    # optim_g.zero_grad()
+                    # contrastive_loss.backward()
+                    # back_2 = self.check_grad()
+
                     loss_total_g = loss_G + contrastive_loss
+
                     loss_total_g.backward()
                     optim_g.step()
 
@@ -429,9 +445,9 @@ class GCATM(BNTM):
             if epoch % 50 == 0:
                 self.writer.add_scalars("Train/Loss", {"D_loss": loss_d, "E_loss": loss_E, "G_loss": loss_G}, epoch)
                 self.writer.add_scalar("Train/Contrastive-Loss", contrastive_loss, epoch)
-            if epoch % 250 == 0:
+            if epoch % 250 == 0 and epoch != 0:
                 if test_data is not None:
-                    c_a, c_p, npmi = self.get_topic_coherence()
+                    c_a, c_p, npmi = self.get_topic_coherence(train_data.task_name)
                     if self.max_npmi_value < npmi:
                         self.max_npmi_value = npmi
                         self.max_npmi_step = epoch
@@ -444,10 +460,10 @@ class GCATM(BNTM):
                                             epoch)
 
     # 使用local npmi
-    def get_topic_coherence(self):
+    def get_topic_coherence(self, task_name):
         topic_words = self.show_topic_words()
         print('\n'.join([str(lst) for lst in topic_words]))
-        return get_coherence_by_local_jar(topic_words)
+        return get_coherence_by_local_jar(topic_words, self.date, task_name)
 
     def make_mask(self, labels, n_cls, mask_negatives):
         labels = labels.detach().cpu().numpy()
@@ -462,3 +478,12 @@ class GCATM(BNTM):
             mask_multi[c, c_indices] = target
 
         return torch.tensor(mask_multi).type(torch.long).to(self.device)
+
+    def check_grad(self):
+        back_up = {}
+        for name, param in self.generator.named_parameters():
+            if param.requires_grad:
+                print(name)
+                print(param.grad)
+                back_up[name] = param.grad
+        return back_up

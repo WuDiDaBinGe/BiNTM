@@ -49,13 +49,15 @@
 
 **Batch Size 256时的情况:**Batch size 可能不是影响训练因素
 
+20news_clean_2021-08-14-19-10_topic20
+
 |                           评价指标                           |                           Loss曲线                           |
 | :----------------------------------------------------------: | :----------------------------------------------------------: |
 | ![image-20210716091755973](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210716091755973.png) | ![image-20210716091809117](https://gitee.com/yxbLovewy/my-pictures/raw/master/mdimgs/image-20210716091809117.png) |
 
 ![image-20210815183700082](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20210815183700082.png)
 
-
+max npmi on goriler: 0.07421649999999999
 
 | ![image-20210815183606819](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20210815183606819.png) | ![image-20210815183617948](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20210815183617948.png) |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |

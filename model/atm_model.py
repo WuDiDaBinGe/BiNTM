@@ -54,10 +54,8 @@ class BNTM(object):
 
     def train(self, train_data, batch_size=64, clip=0.01, lr=1e-4, test_data=None, epochs=100, beta_1=0.5,
               beta_2=0.999, n_critic=5, clean_data=False, resume=False,
-              ckpt_path='models_save/atm/checkpoint_20news_clean_20/ckpt_best_1000.pth'):
-        self.generator.train()
-        self.encoder.train()
-        self.discriminator.train()
+              ckpt_path='models_save/atm/checkpoint_goriler_20_2021-09-30-23-47/ckpt_best.pth'):
+
         start_epoch = -1
         if clean_data:
             self.id2token = train_data.dictionary_id2token
@@ -83,6 +81,9 @@ class BNTM(object):
             self.max_npmi_step = checkpoint['maxStep']
 
         for epoch in range(start_epoch + 1, epochs + 1):
+            self.generator.train()
+            self.encoder.train()
+            self.discriminator.train()
             for iter_num, data in enumerate(data_loader):
                 if clean_data:
                     bows_real = data
@@ -129,7 +130,7 @@ class BNTM(object):
                                         epoch)
             if epoch % 250 == 0:
                 if test_data is not None:
-                    c_a, c_p, npmi = self.get_topic_coherence()
+                    c_a, c_p, npmi = self.get_topic_coherence(train_data.task_name)
                     if self.max_npmi_value < npmi:
                         self.max_npmi_value = npmi
                         self.max_npmi_step = epoch
@@ -157,6 +158,9 @@ class BNTM(object):
                    f'models_save/{self.logdir_name}/checkpoint_{self.task_name}_{self.n_topic}_{self.date}/ckpt_best.pth')
 
     def show_topic_words(self, topic_id=None, topK=10):
+        self.encoder.eval()
+        self.generator.eval()
+        self.discriminator.eval()
         with torch.no_grad():
             topic_words = []
             idxes = torch.eye(self.n_topic).to(self.device)
@@ -182,10 +186,10 @@ class BNTM(object):
         print(f'c_a:{c_a},c_p:{c_p}, npmi:{npmi}')
 
     # 使用local npmi
-    def get_topic_coherence(self):
+    def get_topic_coherence(self, task_name):
         topic_words = self.show_topic_words()
         print('\n'.join([str(lst) for lst in topic_words]))
-        return get_coherence_by_local_jar(topic_words, self.date)
+        return get_coherence_by_local_jar(topic_words, self.date, task_name)
 
     def make_mask(self, labels, n_cls, mask_negatives):
         labels = labels.detach().cpu().numpy()

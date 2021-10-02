@@ -21,11 +21,71 @@ def onehot(data, min_length):
     # return word frequent vector
     return np.bincount(data, minlength=min_length)
 
+class DocNpyDataset(Dataset):
+    def __init__(self, task_dir, use_tfidf=True, no_below=1, no_above=0.1, stopwords=None):
+        super(DocNpyDataset, self).__init__()
+        self.task_name = task_dir
+        # file current dir
+        cwd = os.path.split(os.path.realpath(__file__))[0]
+        cwd = os.path.split(cwd)[0]
+        text_path = os.path.join(cwd, 'data', task_dir)
+        if task_dir == '20news_clean':
+            dataset_tr = 'train.txt.npy'
+            self.data_tr_row = np.load(os.path.join(text_path, dataset_tr), allow_pickle=True, encoding='latin1')
+            self.data_tr_row = [doc for doc in self.data_tr_row if np.sum(doc) != 0 and len(doc) > 2]
+            vocab_p = 'vocab.pkl'
+            self.dictionary_token2id = pickle.load(open(os.path.join(text_path, vocab_p), 'rb'))
+            self.vob_size = len(self.dictionary_token2id)
+            # word frequent vector
+            self.data_tr = np.array(
+                [onehot(doc.astype('int'), self.vob_size) for doc in self.data_tr_row if np.sum(doc) != 0])
+
+        elif task_dir == 'goriler':
+            dataset_tr = 'grolier15276.csv'
+            self.dictionary_token2id = {}
+            num_index = 0
+            # 加载词典
+            with open(os.path.join(text_path, 'grolier15276_words.txt'), 'r') as f:
+                for line in f:
+                    self.dictionary_token2id[line.strip()] = num_index
+                    num_index += 1
+            self.vob_size = len(self.dictionary_token2id)
+            articles = []  # 存放词频向量
+            with open(os.path.join(text_path, dataset_tr), 'r') as f:
+                for line in f:
+                    line = line.strip().split(',')
+                    if line[1] != "":
+                        line = line[1:]
+                        # 转成词频向量
+                        bow = np.zeros(self.vob_size)
+                        for index in range(0, len(line) - 1, 2):
+                            bow[int(line[index]) - 1] = int(line[index + 1])
+                        articles.append(bow)
+            self.data_tr = np.array(articles)
+        self.num_docs = len(self.data_tr)
+        self.use_tfidf = use_tfidf
+        if self.use_tfidf:
+            transformer = TfidfTransformer()  # get tf-idf weight
+            self.tfidf = transformer.fit_transform(self.data_tr)
+            self.tfidf = self.tfidf.toarray()
+        self.dictionary_id2token = {v: k for k, v in self.dictionary_token2id.items()}
+
+        print(f'Processed {self.num_docs} documents')
+
+    def __getitem__(self, idx):
+        if self.use_tfidf:
+            return self.tfidf[idx]
+        else:
+            return self.data_tr[idx]
+
+    def __len__(self):
+        return self.num_docs
 
 class DocDataset(Dataset):
     def __init__(self, task_name, lang='zh', text_path=None, use_tfidf=True, no_below=1, no_above=0.1, stopwords=None,
                  rebuild=True, use_token=False):
         super(DocDataset, self).__init__()
+
         cwd = os.getcwd()
         text_path = os.path.join(cwd, '../data', f'{task_name}_lines.txt') if text_path is None else text_path
         tmp_dir = os.path.join(cwd, '../data', task_name)
@@ -107,43 +167,7 @@ class DocDataset(Dataset):
             yield doc
 
 
-class DocNpyDataset(Dataset):
-    def __init__(self, task_dir, use_tfidf=True, no_below=1, no_above=0.1, stopwords=None):
-        super(DocNpyDataset, self).__init__()
-        # file current dir
-        cwd = os.path.split(os.path.realpath(__file__))[0]
-        cwd = os.path.split(cwd)[0]
-        text_path = os.path.join(cwd, 'data', task_dir)
-        dataset_tr = 'train.txt.npy'
-        self.data_tr_row = np.load(os.path.join(text_path, dataset_tr), allow_pickle=True, encoding='latin1')
-        self.data_tr_row = [doc for doc in self.data_tr_row if np.sum(doc) != 0 and len(doc) > 2]
-        vocab_p = 'vocab.pkl'
-        self.dictionary_token2id = pickle.load(open(os.path.join(text_path, vocab_p), 'rb'))
-        self.vob_size = len(self.dictionary_token2id)
-        # --------------convert to one-hot representation------------------
-        print("Converting data to one-hot representation")
-        # word frequent vector
-        self.data_tr = np.array(
-            [onehot(doc.astype('int'), self.vob_size) for doc in self.data_tr_row if np.sum(doc) != 0])
-        self.num_docs = len(self.data_tr)
 
-        self.use_tfidf = use_tfidf
-        if self.use_tfidf:
-            transformer = TfidfTransformer()  # get tf-idf weight
-            self.tfidf = transformer.fit_transform(self.data_tr)
-            self.tfidf = self.tfidf.toarray()
-        self.dictionary_id2token = {v: k for k, v in self.dictionary_token2id.items()}
-
-        print(f'Processed {self.num_docs} documents')
-
-    def __getitem__(self, idx):
-        if self.use_tfidf:
-            return self.tfidf[idx]
-        else:
-            return self.data_tr[idx]
-
-    def __len__(self):
-        return self.num_docs
 
 
 class DataArgumentNpy(DocNpyDataset):
@@ -176,10 +200,6 @@ class DataArgumentNpy(DocNpyDataset):
             return self.data_tr[idx], self.data_tr_1[idx], self.data_tr_2[idx]
 
 
-
-
-
-
 if __name__ == '__main__':
     # docSet = DocDataset('military')
     # dataloader = DataLoader(docSet, batch_size=64, shuffle=True, collate_fn=docSet.collate_fn)
@@ -196,7 +216,7 @@ if __name__ == '__main__':
     docSet_npy = DocNpyDataset('20news_clean')
     print(docSet_npy.vob_size)
     dataloader = DataLoader(docSet_npy, batch_size=64, shuffle=True)
-    print('docSet.docs[10]:', docSet_npy.tfidf[10])
+    print(np.sum(docSet_npy.tfidf[10]))
     print(next(iter(dataloader)).shape)
 
     # docSet_npy = DataArgumentNpy('20news_clean')
