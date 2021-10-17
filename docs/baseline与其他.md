@@ -57,7 +57,7 @@
 
 ![image-20210815183700082](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20210815183700082.png)
 
-max npmi on goriler: 0.07421649999999999
+
 
 | ![image-20210815183606819](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20210815183606819.png) | ![image-20210815183617948](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20210815183617948.png) |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
@@ -265,4 +265,72 @@ def forward(self, topic_distribute, doc_bow):
 ['evil', 'fund', 'somehow', 'original', 'hope', 'use', 'get', 'one', '_eos_', 'write']
 ['evil', 'fund', 'somehow', 'original', 'hope', 'law', 'year', 'speak', 'people', 'police']
 ```
+
+---
+
+### Goriler 数据集
+
+| batch size | clip | learning rate | beta_1 | beta_2 | n_critic | optimizer |
+| :--------: | :--: | :-----------: | :----: | :----: | :------: | :-------: |
+|    256     | 0.01 |     1e-4      |  0.5   | 0.999  |    10    |   Adam    |
+
+**Topic =20：**
+
+goriler_2021-09-30-23-47_topic20
+
+max npmi on goriler: 0.07421649999999999
+
+**Topic Num = 30：**
+
+goriler_2021-10-02-12-10_topic30
+
+![image-20211008145636463](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20211008145636463.png)
+
+|                           评价指标                           |                           Loss曲线                           |
+| :----------------------------------------------------------: | :----------------------------------------------------------: |
+| ![image-20211008145826195](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20211008145826195.png) | ![image-20211008145834719](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20211008145834719.png) |
+| ![image-20211008145850129](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20211008145850129.png) | ![image-20211008145856957](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20211008145856957.png) |
+
+**Topic Num = 50：**
+
+goriler_2021-10-08-15-01_topic50
+
+max_epoch:26250  max_value:0.0703434
+
+![image-20211009232243175](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20211009232243175.png)
+
+|                           评价指标                           |                           Loss曲线                           |
+| :----------------------------------------------------------: | :----------------------------------------------------------: |
+| ![image-20211008145826195](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20211008145826195.png) | ![image-20211008145834719](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20211008145834719.png) |
+| ![image-20211008145850129](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20211008145850129.png) | ![image-20211008145856957](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20211008145856957.png) |
+
+**Topic Num = 75：**
+
+goriler_2021-10-10-15-01_topic75
+
+max_epoch:44500  max_value:0.06575786666666665
+
+![image-20211012143226279](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20211012143226279.png)
+
+|                           评价指标                           |                           Loss曲线                           |
+| :----------------------------------------------------------: | :----------------------------------------------------------: |
+| ![image-20211012143242828](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20211012143242828.png) | ![image-20211012143254741](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20211012143254741.png) |
+| ![image-20211012143318704](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20211012143318704.png) | ![image-20211012143328036](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20211012143328036.png) |
+
+**Topic Num = 100：**
+
+goriler_2021-10-13-00-27_topic100
+
+max_epoch:7750  max_value:0.055588799999999994
+
+![image-20211013151022123](/home/yxb/.config/Typora/typora-user-images/image-20211013151022123.png)
+
+|                           评价指标                           |                           Loss曲线                           |
+| :----------------------------------------------------------: | :----------------------------------------------------------: |
+| ![image-20211013151040477](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20211013151040477.png) | ![image-20211013151047719](https://gitee.com/yxbLovewy/my-pictures/raw/master/image-20211013151047719.png) |
+| ![image-20211013151142524](/home/yxb/.config/Typora/typora-user-images/image-20211013151142524.png) | ![image-20211013151130745](/home/yxb/.config/Typora/typora-user-images/image-20211013151130745.png) |
+
+| 20      | 30      | 50      | 75      | 100     | Acverage |
+| ------- | ------- | ------- | ------- | ------- | -------- |
+| 0.07422 | 0.07421 | 0.07034 | 0.06576 | 0.05559 | 0.068024 |
 

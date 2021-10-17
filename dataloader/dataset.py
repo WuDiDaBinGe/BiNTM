@@ -21,6 +21,7 @@ def onehot(data, min_length):
     # return word frequent vector
     return np.bincount(data, minlength=min_length)
 
+
 class DocNpyDataset(Dataset):
     def __init__(self, task_dir, use_tfidf=True, no_below=1, no_above=0.1, stopwords=None):
         super(DocNpyDataset, self).__init__()
@@ -80,6 +81,7 @@ class DocNpyDataset(Dataset):
 
     def __len__(self):
         return self.num_docs
+
 
 class DocDataset(Dataset):
     def __init__(self, task_name, lang='zh', text_path=None, use_tfidf=True, no_below=1, no_above=0.1, stopwords=None,
@@ -165,9 +167,6 @@ class DocDataset(Dataset):
     def __iter__(self):
         for doc in self.docs:
             yield doc
-
-
-
 
 
 class DataArgumentNpy(DocNpyDataset):

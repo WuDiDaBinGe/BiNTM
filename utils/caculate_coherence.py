@@ -34,6 +34,8 @@ def calculate_coherence_jar(topic_file, ret, coherence_type):
     stdout, stderr = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
     encoding = chardet.detect(stdout)["encoding"]
     result = stdout.decode(encoding)
+    if coherence_type == "NPMI":
+        print(result)
     ret[coherence_type] = prcess_result(result)
     return
 
@@ -94,14 +96,29 @@ def get_coherence_by_local_jar(topic_words, date, task_name):
 
 if __name__ == '__main__':
     words_topic = [
-        ['car', 'anyone', 'bike', 'new', 'good', 'buy', 'engine', 'oil', 'ride', 'dod'],
-        ['game', 'player', 'team', 'play', 'go', 'hockey', 'win', 'nhl', 'score', 'season'],
-        ['msg', 'doctor', 'food', 'patient', 'gordon', 'bank', 'disease', 'go', 'treatment', 'surrender'],
-        ['window', 'thanks', 'anyone', 'advance', 'display', 'color', 'screen', 'run', 'look', 'appreciate'],
-        ['card', 'monitor', 'video', 'mode', 'driver', 'vga', 'color', 'mouse', 'chip', 'speed'],
-        ['israel', 'israeli', 'arab', 'jews', 'bank', 'arabs', 'lebanese', 'gordon', 'lebanon', 'research'],
-        ['space', 'car', 'launch', 'cost', 'nasa', 'orbit', 'moon', 'shuttle', 'price', 'look'],
+        ['israel', 'lebanese', 'lebanon', 'israeli', 'civilian', 'territory', 'arab', 'jews', 'palestinian', 'make'],
+        ['driver', 'card', 'gateway', 'latest', 'video', 'run', 'load', 'mouse', 'mode', 'windows'],
+        ['jesus', 'sin', 'christian', 'bible', 'christ', 'god', 'love', 'use', 'make', 'lord'],
+        ['space', 'nasa', 'billion', 'launch', 'high', 'rocket', 'fly', 'solar', 'moon', 'station'],
+        ['simm', 'nec', 'apple', 'keyboard', 'like', 'pin', 'mac', 'suggestion', 'nice', 'advice'],
+        ['oil', 'spot', 'bike', 'button', 'air', 'helmet', 'reliable', 'clean', 'plug', 'put'],
+        ['church', 'christian', 'bible', 'scientific', 'revelation', 'book', 'part', 'christianity', 'point', 'see'],
+        ['game', 'team', 'score', 'cup', 'play', 'ice', 'hockey', 'season', 'make', 'see'],
+        ['koresh', 'batf', 'tear', 'compound', 'die', 'fire', 'gas', 'cs', 'agent', 'see'],
+        ['car', 'turbo', 'model', 'sport', 'road', 'sit', 'engine', 'handle', 'drive', 'brake'],
+        ['shipping', 'original', 'cable', 'offer', 'manual', 'sell', 'floppy', 'please', 'hp', 'new'],
+        ['gun', 'criminal', 'firearm', 'violent', 'ban', 'crime', 'make', 'case', 'people', 'see'],
+        ['player', 'league', 'play', 'career', 'defensive', 'nhl', 'baseball', 'hockey', 'average', 'roger'],
+        ['problem', 'fix', 'compile', 'null', 'patch', 'error', 'bug', 'turn', 'program', 'file'],
+        ['armenians', 'armenian', 'turks', 'armenia', 'turkish', 'serve', 'turkey', 'population', 'muslim', 'soviet'],
+        ['key', 'algorithm', 'chip', 'clipper', 'secure', 'escrow', 'trust', 'encryption', 'government', 'secret'],
+        ['clock', 'slow', 'speed', 'faster', 'cpu', 'mhz', 'fast', 'processor', 'bus', 'handle'],
+        ['find', 'hello', 'know', 'please', 'vga', 'file', 'driver', 'program', 'update', 'anyone'],
+        ['bike', 'dog', 'dod', 'ride', 'honda', 'make', 'like', 'drink', 'roll', 'disclaimer'],
+        ['disease', 'drug', 'much', 'money', 'people', 'tax', 'pay', 'oh', 'take', 'since'],
     ]
+    # for line in words_topic:
+    #     print(" ".join(line))
     start = time.time()
     print(get_coherence_by_local_jar(words_topic, time.strftime("%Y-%m-%d-%H-%M", time.localtime()), 'test'))
     end = time.time()

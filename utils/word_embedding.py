@@ -7,6 +7,7 @@ import os
 import pickle
 
 import torchtext
+import numpy as np
 import torch
 import torchtext.vocab as vocab
 
@@ -43,6 +44,13 @@ def generator_dataset_embedding(dataset_vob, task_name):
     print(remain)
 
 
+def check_save_embedding(dataset_vob, query_token):
+    embedding = torch.load('../data/goriler/goriler_300_embedding.pt')
+    token_index = dataset_vob[query_token]
+    mask = embedding[token_index] == glove.vectors[glove.stoi[query_token]]
+    print(mask)
+
+
 if __name__ == '__main__':
     # 没有的 ['coelenterates', 'fuhn', 'kans', 'nebr', 'nonmetropolitan', 'repr', 'sawtimber']
     dictionary_token2id = {}
@@ -52,8 +60,10 @@ if __name__ == '__main__':
         for line in f:
             dictionary_token2id[line.strip()] = num_index
             num_index += 1
-    generator_dataset_embedding(dictionary_token2id, 'goriler')
+    # generator_dataset_embedding(dictionary_token2id, 'goriler')
     # 没有的 ['oname', 'colormap', 'ripem', '_eos_', 'scsus', 'bhj', 'xterm', 'imho']
     # vocab = '../data/20news_clean/vocab.pkl'
     # vocab = pickle.load(open(vocab, 'rb'))
     # generator_dataset_embedding(vocab, '20news_clean')
+    print('king' in dictionary_token2id.keys())
+    check_save_embedding(dictionary_token2id, 'king')

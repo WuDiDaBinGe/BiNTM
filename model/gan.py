@@ -33,6 +33,17 @@ class Generator(nn.Module):
         return self.generator(theta)
 
 
+class GaussianGenerator(nn.Module):
+    def __init__(self):
+        pass
+
+    def forward(self, inputs):
+        pass
+
+    def inference(self, theta):
+        pass
+
+
 class Encoder(nn.Module):
     def __init__(self, v_dim, hid_dim, n_topic):
         super(Encoder, self).__init__()
@@ -60,4 +71,37 @@ class Discriminator(nn.Module):
         return score
 
 
+class InfoDiscriminator(nn.Module):
+    def __init__(self, n_topic, hid_dim, v_dim):
+        super(InfoDiscriminator, self).__init__()
+        self.v_dim = v_dim
+        self.n_topic = n_topic
+        self.discriminator = nn.Sequential(
+            *block(n_topic + v_dim, hid_dim),
+            nn.Linear(hid_dim, 1),
+        )
+        self.info_discriminator = nn.Sequential(
+            *block(v_dim, hid_dim),
+            nn.Linear(hid_dim, n_topic),
+        )
 
+    def forward(self, reps):
+        bow = reps[:, self.n_topic:].clone()
+        score = self.discriminator(reps)
+        logits = self.info_discriminator(bow)
+        return score, logits
+
+
+class Classifier(nn.Module):
+    def __init__(self, n_topic, hid_dim, v_dim):
+        super(Classifier, self).__init__()
+        self.v_dim = v_dim
+        self.n_topic = n_topic
+        self.classifier = nn.Sequential(
+            *block(v_dim, hid_dim),
+            nn.Linear(hid_dim, n_topic),
+        )
+
+    def forward(self, bow):
+        logs = self.classifier(bow)
+        return logs

@@ -32,7 +32,7 @@ transformer = TfidfTransformer()  # 该类会统计每个词语的tf-idf权值
 tfidf = transformer.fit_transform(data_tr)  # 第一个fit_transform是计算tf-idf，第二个fit_transform是将文本转为词频矩阵
 print("tf-idf")
 print(tfidf.toarray())
-
+tf_idf = tfidf.toarray()
 # corpus = ["我 来到 北京 清华大学",  # 第一类文本
 #           # 切词后的结果，词之间以空格隔开
 #           "他 来到 了 网易 杭研 大厦",  # 第二类文本的切词结果
@@ -46,3 +46,15 @@ print(tfidf.toarray())
 #     print(u"-------这里输出第", i, u"类文本的词语tf-idf权重------")
 #     for j in range(len(word)):
 #         print(word[j], weight[i][j])
+import torch
+
+tf_idf = torch.tensor(tf_idf, dtype=torch.double)
+print("*************************")
+embedding = torch.load(f'./20news_clean_300_embedding.pt').double()
+print(tf_idf.shape)
+print(embedding.shape)
+
+tf_idf /= torch.sum(tf_idf, dim=1, keepdim=True)
+x_emb = torch.mm(tf_idf, embedding)
+
+print(x_emb)

@@ -5,6 +5,7 @@
 # @Software: PyCharm
 import torch
 import torch.nn as nn
+import numpy as np
 import torch.nn.utils as spectral_norm
 import torch.nn.functional as F
 
@@ -90,32 +91,70 @@ class ContraGenerator(nn.Module):
 
 
 class ContraMeanGenerator(nn.Module):
-    def __init__(self, n_topic, hid_features_dim, v_dim, c_embedding_z_dim=64):
+    def __init__(self, n_topic, hid_features_dim, v_dim, pre_embedding):
         super(ContraMeanGenerator, self).__init__()
         self.topic_num = n_topic
-        self.embedding = nn.EmbeddingBag(num_embeddings=n_topic, embedding_dim=c_embedding_z_dim, mode='sum')
-        self.generator = nn.Sequential(
+        self.v_dim = v_dim
+        self.emb_dim = pre_embedding.shape[1]
+        assert pre_embedding.shape[0] == v_dim
+        self.embedding = nn.EmbeddingBag(num_embeddings=n_topic, embedding_dim=self.emb_dim, mode='sum')
+        pre_embedding = np.random.random(size=(1995, 300)).astype(np.float)
+        pre_embedding = torch.from_numpy(pre_embedding)
+        self.word_embedding = nn.EmbeddingBag.from_pretrained(pre_embedding,
+                                                              mode='sum')
+        self.generator_fc1 = nn.Sequential(
             *block(n_topic, hid_features_dim),
-            nn.Linear(hid_features_dim, v_dim),
-            nn.Softmax(dim=1)
+            nn.Linear(hid_features_dim, v_dim)
         )
-        # self.softmax = nn.Softmax(dim=1)
-        # doc instance project for contrastive loss
-        self.project_head = nn.Sequential(
-            nn.Linear(v_dim, c_embedding_z_dim),
-        )
+        self.softmax = nn.Softmax(dim=1)
 
-    def forward(self, theta, inputs_):
+    def forward(self, theta, inputs_embedding, inputs_word_embedding):
         topic_label = torch.argmax(theta, dim=1)
-        topic_embedding = self.embedding(inputs_, per_sample_weights=theta).squeeze(dim=0)
-        bow_out = self.generator(theta)
-
-        z_features = self.project_head(bow_out)
+        topic_embedding = self.embedding(inputs_embedding, per_sample_weights=theta).squeeze(dim=0)
+        # topic_embedding = self.generator_fc1(theta)
+        bow_out = self.softmax(self.generator_fc1(theta))
+        z_features = self.word_embedding(inputs_word_embedding, per_sample_weights=bow_out).squeeze(dim=0)
         return bow_out, topic_embedding, z_features, topic_label
 
     def inference(self, theta):
-        bow_out = self.generator(theta)
-        return bow_out
+        topic_embedding = self.generator_fc1(theta)
+        bow_out = self.softmax(topic_embedding)
+        return self.softmax(bow_out)
+
+
+class ContraEmbedGenerator(nn.Module):
+    """
+        使用embedding 进行初始化生成器的第二个矩阵
+    """
+
+    def __init__(self, n_topic, hid_features_dim, v_dim, c_embedding_z_dim=256):
+        super(ContraEmbedGenerator, self).__init__()
+        self.topic_num = n_topic
+        # self.embedding = nn.EmbeddingBag(num_embeddings=n_topic, embedding_dim=c_embedding_z_dim, mode='sum')
+        self.generator_fc1 = nn.Sequential(
+            *block(n_topic, hid_features_dim)
+        )
+        self.generator_fc2 = nn.Sequential(
+            nn.Linear(hid_features_dim, v_dim)
+        )
+        self.softmax = nn.Softmax(dim=1)
+        # doc instance project for contrastive loss
+        self.project_head = nn.Linear(v_dim, c_embedding_z_dim)
+
+    def forward(self, theta, inputs_=None):
+        topic_label = torch.argmax(theta, dim=1)
+        # topic_embedding = self.embedding(inputs_, per_sample_weights=theta).squeeze(dim=0)
+        topic_embedding = self.generator_fc1(theta)
+
+        bow_out = self.generator_fc2(topic_embedding)
+
+        z_features = self.project_head(bow_out)
+        return self.softmax(bow_out), topic_embedding, z_features, topic_label
+
+    def inference(self, theta):
+        topic_embedding = self.generator_fc1(theta)
+        bow_out = self.generator_fc2(topic_embedding)
+        return self.softmax(bow_out)
 
 
 class WordEmbeddingDiscriminator(nn.Module):
@@ -221,4 +260,4 @@ if __name__ == '__main__':
     for name, param in model.named_parameters():
         print(name)
         if param.requires_grad:
-            print(param.grad)
+            print(param.shape)

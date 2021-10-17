@@ -6,7 +6,7 @@
 import torch
 import argparse
 import time
-from model.atm_model import BNTM
+from model.atm_model import BNTM, BEmbeddingNTM, INFOATM
 from dataloader.dataset import DocDataset, DocNpyDataset
 from multiprocessing import cpu_count
 
@@ -68,8 +68,8 @@ def main():
                                 use_tfidf=use_tfidf)
 
     voc_size = docSet.vob_size
-
-    model = BNTM(bow_dim=voc_size, n_topic=n_topic, hid_dim=1024, device=device, task_name=taskname)
+    # TODO: 修改模型的时候需要修改
+    model = INFOATM(bow_dim=voc_size, n_topic=n_topic, hid_dim=1024, device=device, task_name=taskname)
     model.train(train_data=docSet, batch_size=batch_size, test_data=docSet, epochs=num_epochs, n_critic=n_critic,
                 clean_data=clean_data, resume=bkpt_continue, lr=lr)
     topic_words = model.show_topic_words()

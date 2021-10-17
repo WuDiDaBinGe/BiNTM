@@ -11,10 +11,13 @@ from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader
 import numpy as np
 import time
+
+from tqdm import tqdm
+
 from model.atm_model import BNTM
 from model.cgan import ContrastiveDiscriminator, ContraGenerator, ContraMeanGenerator, WordEmbeddingDiscriminator
 from utils.caculate_coherence import get_coherence_by_local_jar
-from utils.contrastive_loss import InstanceLoss, ClusterLoss, Conditional_Contrastive_loss
+from utils.contrastive_loss import InstanceLoss, ClusterLoss, Conditional_Contrastive_loss, SupConLoss
 from utils.tf_idf_data_argument import batch_argument_del_tfidf
 
 
@@ -324,7 +327,8 @@ class GCATM(BNTM):
         super(GCATM, self).__init__(n_topic, bow_dim, hid_dim, device, task_name)
         self.date = time.strftime("%Y-%m-%d-%H-%M", time.localtime())
         self.logdir_name = "gc_atm"
-        self.generator = ContraMeanGenerator(n_topic=n_topic, hid_features_dim=hid_dim, v_dim=bow_dim)
+        self.generator = ContraMeanGenerator(n_topic=n_topic, hid_features_dim=hid_dim, v_dim=bow_dim,
+                                             pre_embedding=self.embedding)
         if device is not None:
             self.generator = self.generator.to(device)
 
@@ -334,10 +338,12 @@ class GCATM(BNTM):
         self.generator.train()
         self.encoder.train()
         self.discriminator.train()
+        # TODO: 选择不同的对比损失
         # instance-loss
-        contrastive_loss_function = InstanceLoss(batch_size, gamma_temperature, self.device)
-        # contrastive_loss_function = Conditional_Contrastive_loss(device=self.device, batch_size=batch_size,
-        #                                                          pos_collected_numerator=True)
+        # contrastive_loss_function = InstanceLoss(batch_size, gamma_temperature, self.device)
+        contrastive_loss_function = Conditional_Contrastive_loss(device=self.device, batch_size=batch_size,
+                                                                 pos_collected_numerator=True)
+        # contrastive_loss_function = SupConLoss()
         start_epoch = -1
         if clean_data:
             self.id2token = train_data.dictionary_id2token
@@ -346,12 +352,8 @@ class GCATM(BNTM):
             self.id2token = {v: k for k, v in train_data.dictionary.token2id.items()}
             data_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=4,
                                      collate_fn=train_data.collate_fn, drop_last=True)
-        optim_g = torch.optim.Adam([
-            {'params': [p for n, p in self.generator.named_parameters() if 'generator' in n]},
-            {'params': [p for n, p in self.generator.named_parameters() if 'embedding' in n or 'project_head' in n],
-             'lr': lr * 10}
-        ]
-            , lr=lr, betas=(beta_1, beta_2))
+        optim_g = torch.optim.Adam(self.generator.parameters(),
+                                   lr=lr, betas=(beta_1, beta_2))
         # 优化对比学习的Loss
         optim_e = torch.optim.Adam(self.encoder.parameters(), lr=lr, betas=(beta_1, beta_2))
         optim_d = torch.optim.Adam(self.discriminator.parameters(), lr=lr, betas=(beta_1, beta_2))
@@ -374,10 +376,13 @@ class GCATM(BNTM):
             start_epoch = checkpoint['epoch']
             self.max_npmi_value = checkpoint['maxValue']
             self.max_npmi_step = checkpoint['maxStep']
+
         inputs_embedding = torch.LongTensor([[i for i in range(self.n_topic)]] * batch_size).to(self.device)
         inputs_word_embedding = torch.LongTensor([[i for i in range(self.v_dim)]] * batch_size).to(self.device)
+        w = 1
         for epoch in range(start_epoch + 1, epochs + 1):
-            for iter_num, data in enumerate(data_loader):
+            data_iter = tqdm(data_loader, leave=False)
+            for iter_num, data in enumerate(data_iter):
                 if clean_data:
                     bows_real = data
                     bows_real = bows_real.float()
@@ -392,7 +397,7 @@ class GCATM(BNTM):
                 # sample
                 topic_fake = torch.from_numpy(np.random.dirichlet(alpha=1.0 * np.ones(self.n_topic) / self.n_topic,
                                                                   size=len(bows_real))).float().to(self.device)
-                bows_fake = self.generator(topic_fake, inputs_embedding)[0].detach()
+                bows_fake = self.generator(topic_fake, inputs_embedding, inputs_word_embedding)[0].detach()
 
                 # use detach() to stop the gradient backward p(frozen the g and e parameters)
                 # advertise loss
@@ -411,26 +416,32 @@ class GCATM(BNTM):
                 if iter_num % n_critic == 0:
                     # train generator and encoder
                     optim_g.zero_grad()
-                    fake_bow, topic_embedding, z_features, labels = self.generator(topic_fake, inputs_embedding)
+                    fake_bow, topic_embedding, z_features, labels = self.generator(topic_fake, inputs_embedding,
+                                                                                   inputs_word_embedding)
                     score = self.discriminator(torch.cat([topic_fake, fake_bow], dim=1))
                     loss_G = -torch.mean(score)
                     fake_cls_mask = self.make_mask(labels, self.n_topic, mask_negatives=True)
-                    # contrastive_loss = contrastive_loss_function(F.normalize(z_features, dim=1),
-                    #                                              F.normalize(topic_embedding, dim=1),
-                    #                                              fake_cls_mask, labels, gamma_temperature
-                    #                                              )
+                    # TODO:修改对比损失的时候 需要修改
                     contrastive_loss = contrastive_loss_function(F.normalize(z_features, dim=1),
-                                                                 F.normalize(topic_embedding, dim=1)) / 100
+                                                                 F.normalize(topic_embedding, dim=1),
+                                                                 fake_cls_mask, labels, gamma_temperature
+                                                                 )
+
+                    # contrastive_loss = contrastive_loss_function(F.normalize(z_features, dim=1),
+                    #                                              F.normalize(topic_embedding, dim=1))
 
                     # loss_G.backward(retain_graph=True)
                     # back_1 = self.check_grad()
                     # optim_g.zero_grad()
                     # contrastive_loss.backward()
                     # back_2 = self.check_grad()
+                    contra_grad = self.compute_grad_normal(contrastive_loss)
+                    adv_grad = self.compute_grad_normal(loss_G)
+                    w = 1 * adv_grad / contra_grad
 
-                    loss_total_g = loss_G + contrastive_loss
-
+                    loss_total_g = loss_G + w * contrastive_loss
                     loss_total_g.backward()
+
                     optim_g.step()
 
                     optim_e.zero_grad()
@@ -438,14 +449,21 @@ class GCATM(BNTM):
                     loss_E = torch.mean(score)
                     loss_E.backward()
                     optim_e.step()
-                    print(
-                        f'Epoch {(epoch + 1):>3d}\tIter {(iter_num + 1):>4d}\tLoss_D:{loss_d.item():<.7f}\tLoss_G:{loss_G.item():<.7f}\tloss_E:{loss_E.item():<.7f}\tcontrastive_loss_real:{contrastive_loss:<.7f}')
+
+                    # 显示左边的信息
+                    data_iter.set_description(f"Epoch:{epoch}")
+                    # 显示进度条右边信息
+                    data_iter.set_postfix(Loss_D=loss_d.item(), Loss_G=loss_G.item(), loss_E=loss_E.item(),
+                                          contra_loss=contrastive_loss.item())
+                    # print(
+                    #     f'Epoch {(epoch + 1):>3d}\tIter {(iter_num + 1):>4d}\tLoss_D:{loss_d.item():<.7f}\tLoss_G:{loss_G.item():<.7f}\tloss_E:{loss_E.item():<.7f}\tcontrastive_loss_real:{contrastive_loss:<.7f}')
 
             # tensorboardX
             if epoch % 50 == 0:
                 self.writer.add_scalars("Train/Loss", {"D_loss": loss_d, "E_loss": loss_E, "G_loss": loss_G}, epoch)
                 self.writer.add_scalar("Train/Contrastive-Loss", contrastive_loss, epoch)
             if epoch % 250 == 0 and epoch != 0:
+                print(w)
                 if test_data is not None:
                     c_a, c_p, npmi = self.get_topic_coherence(train_data.task_name)
                     if self.max_npmi_value < npmi:
@@ -487,3 +505,8 @@ class GCATM(BNTM):
                 print(param.grad)
                 back_up[name] = param.grad
         return back_up
+
+    def compute_grad_normal(self, loss):
+        grad = torch.autograd.grad(loss, [p for n, p in self.generator.named_parameters() if 'generator' in n],
+                                   retain_graph=True)
+        return torch.norm(grad[0])

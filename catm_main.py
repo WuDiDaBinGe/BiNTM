@@ -105,8 +105,7 @@ def main():
         model.train_with_contra(train_data=docSet, batch_size=batch_size, test_data=docSet, epochs=num_epochs,
                                 n_critic=n_critic,
                                 lr=lr,
-                                clean_data=clean_data, resume=bkpt_continue, gamma_temperature=instance_temperature,
-                                ckpt_path='models_save/c_atm_discriminator/checkpoint_20news_clean_100_2021-08-23-14-54/ckpt_best.pth')
+                                clean_data=clean_data, resume=bkpt_continue, gamma_temperature=instance_temperature,                                ckpt_path='models_save/c_atm_discriminator/checkpoint_20news_clean_100_2021-08-23-14-54/ckpt_best.pth')
         topic_words = model.show_topic_words()
         print('\n'.join([str(lst) for lst in topic_words]))
         print(f'max_epoch:{model.max_npmi_step},max_value:{model.max_npmi_value}')
